@@ -1,0 +1,28 @@
+{
+  "name": "Il villaggio",
+  "bounds": { "minX": -1, "maxX": 47 },
+  "sleigh": { "x": 0.3 },
+  "sling": { "x": 5.4, "y": 2.6 },
+  "gifts": ["standard", "small", "big", "standard", "small"],
+  "preview": 1.0,
+  "stars": [1500, 3000, 4500],
+  "camera": { "aimCenter": 11, "aimW": 24 },
+  "towers": [
+    { "x": 14, "floors": [3, 2, 1] },
+    { "x": 21, "floors": [2, 2, 1] }
+  ],
+  "houses": [
+    {
+      "x": 27.5, "w": 7, "h": 4.6, "roof": 3.0, "lean": 0.7,
+      "door": { "h": 1.8, "points": 150 },
+      "windows": [{ "y": 2.5, "h": 1.3, "points": 400 }],
+      "chimney": { "pos": 0.4, "bottom": 1.0, "top": 1.8, "h": 1.6, "tilt": 12, "points": 1000 }
+    },
+    {
+      "x": 38, "w": 6.2, "h": 4.0, "roof": 2.6, "lean": 0.6,
+      "door": { "h": 1.7, "points": 150 },
+      "windows": [{ "y": 2.2, "h": 1.1, "points": 600 }],
+      "chimney": { "pos": 0.4, "bottom": 0.95, "top": 1.7, "h": 1.4, "tilt": 12, "points": 1000 }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1230" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Xmas-26" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <title>Xmas-26 · M3</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="frame">
+    <canvas id="game"></canvas>
+    <div id="hud"></div>
+    <div id="controls">
+      <button data-action="wake" data-debug title="Tasto W">Sveglia pile</button>
+      <button data-action="stress" data-debug title="Tasto S">Stress +40</button>
+      <button data-action="reset" title="Tasto R">Reset</button>
+      <button id="fs-btn" title="Schermo intero">⛶</button>
+    </div>
+  </div>
+  <div id="ios-hint" hidden>
+    Per giocare a schermo intero: tocca <b>Condividi</b> e poi <b>Aggiungi alla schermata Home</b>. <span>✕</span>
+  </div>
+  <div id="rotate">Ruota il telefono in orizzontale</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

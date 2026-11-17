@@ -1,0 +1,103 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #05081a;
+  color: #e8eeff;
+  font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body { display: grid; place-items: center; }
+
+/* Riquadro con proporzioni da smartphone orizzontale: dimensioni impostate da JS */
+#frame {
+  position: relative;
+  overflow: hidden;
+  background: #0b1230;
+}
+
+@media (min-width: 900px) and (hover: hover) {
+  body { background: radial-gradient(ellipse at center, #141c44 0%, #05081a 70%); }
+  #frame {
+    border-radius: 28px;
+    box-shadow: 0 0 0 10px #10142a, 0 0 0 12px #2a3160, 0 30px 80px rgba(0, 0, 0, 0.6);
+  }
+}
+
+canvas#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#hud {
+  position: absolute;
+  top: 80px;
+  left: 10px;
+  font-size: 11px;
+  pointer-events: none;
+  white-space: pre;
+  text-shadow: 0 1px 2px #000;
+}
+
+#controls {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+#controls button {
+  font: inherit;
+  color: inherit;
+  background: rgba(20, 30, 70, 0.8);
+  border: 1px solid #3c4a8a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#controls button:active { background: #3c4a8a; }
+
+#rotate {
+  display: none;
+  position: fixed;
+  inset: 0;
+  place-items: center;
+  background: #0b1230;
+  font-size: 18px;
+  text-align: center;
+  padding: 24px;
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  #rotate { display: grid; }
+}
+
+#ios-hint {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: min(560px, 92vw);
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(20, 30, 70, 0.95);
+  border: 1px solid #3c4a8a;
+  font: 13px/1.4 system-ui, sans-serif;
+  text-align: center;
+  z-index: 10;
+}
+#ios-hint[hidden] { display: none; }
+#ios-hint span { margin-left: 8px; opacity: 0.7; cursor: pointer; }
+
+body:not(.debug) [data-debug], body:not(.debug) #hud { display: none; }
