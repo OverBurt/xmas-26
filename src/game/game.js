@@ -6,6 +6,7 @@ import { buildIceTower } from '../entities/iceTower.js';
 import { buildHouse, zoneAt } from '../entities/house.js';
 import { buildSnowFort } from '../entities/snowFort.js';
 import { buildSnowman } from '../entities/snowman.js';
+import { SnowTree } from '../entities/snowTree.js';
 import { launchGift } from '../entities/gift.js';
 import { Slingshot } from '../entities/slingshot.js';
 import { Sleigh } from '../entities/sleigh.js';
@@ -28,6 +29,14 @@ export class Game {
     this.reset();
   }
 
+  /** Cambia livello e lo fa ripartire. */
+  setLevel(level) {
+    this.level = level;
+    this.camera.minX = level.bounds.minX;
+    this.camera.maxX = level.bounds.maxX;
+    this.reset();
+  }
+
   reset() {
     const L = this.level;
     this.pw = new PhysicsWorld();
@@ -35,8 +44,10 @@ export class Game {
     this.slabs = (L.towers || []).flatMap((t) => buildIceTower(this.pw, t.x, t.floors));
     this.forts = (L.forts || []).map((f) => buildSnowFort(this.pw, f));
     for (const f of this.forts) this.slabs.push(...f.bodies);
+    this.trees = (L.trees || []).map((t) => new SnowTree(this.pw, t));
     for (const sm of L.snowmen || []) {
       // "fort": indice di un fortino → il pupazzo sta in cima, al centro
+      if (sm.fort !== undefined && !this.forts[sm.fort]) continue;
       const f = sm.fort !== undefined ? this.forts[sm.fort] : null;
       const x = f ? (f.x0 + f.x1) / 2 + (sm.dx || 0) : sm.x;
       this.slabs.push(buildSnowman(this.pw, x, f ? f.top : 0));
@@ -102,7 +113,11 @@ export class Game {
 
   /** Punteggio totale: consegne + ghiaccio rotto + bonus pacchi avanzati. */
   get score() {
-    return this.deliveryScore + this.fracture.broken * SCORE.icePerBreak + this.bonus;
+    return this.deliveryScore + this.fracture.broken * SCORE.icePerBreak + this.crystals * SCORE.crystal + this.bonus;
+  }
+
+  get crystals() {
+    return this.trees.reduce((n, t) => n + t.knocked, 0);
   }
 
   get giftsLeft() {
@@ -129,6 +144,7 @@ export class Game {
     if (this.state === 'end') {
       const b = this.buttons.find((b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
       if (b?.action === 'retry') this.reset();
+      if (b?.action === 'levels') this.onLevels?.();
       return;
     }
     if (this.state === 'settle') {
@@ -272,13 +288,20 @@ export class Game {
       deliveryScore: this.deliveryScore,
       ice: this.fracture.broken,
       iceScore: this.fracture.broken * SCORE.icePerBreak,
+      crystals: this.crystals,
+      crystalScore: this.crystals * SCORE.crystal,
       bonus: this.bonus,
       allServed,
       served: this.houses.filter((h) => h.served > 0).length,
       houses: this.houses.length,
     };
-    // Pulsante "Riprova" al centro in basso del pannello
-    this.buttons = [{ action: 'retry', label: 'Riprova', x: VIEW_W / 2 - 110, y: VIEW_H / 2 + 120, w: 220, h: 56 }];
+    // Pulsanti in basso nel pannello
+    const by = VIEW_H / 2 + 120;
+    this.buttons = [
+      { action: 'levels', label: 'Livelli', x: VIEW_W / 2 - 230, y: by, w: 210, h: 56, secondary: true },
+      { action: 'retry', label: 'Riprova', x: VIEW_W / 2 + 20, y: by, w: 210, h: 56 },
+    ];
+    this.onEnd?.(this.summary);
     this.setState('end');
     const b = this.level.bounds;
     this.camera.follow = null;
@@ -330,6 +353,7 @@ export class Game {
   step(dt) {
     this.pw.step();
     this.stateTime += dt;
+    for (const t of this.trees) t.collide(this.thrown, this.pw.prev);
 
     // Rotture raccolte durante lo step, poi detriti che svaniscono
     const { added } = this.fracture.process(this.pw.counts().dynamic);
@@ -380,6 +404,7 @@ export class Game {
   frame(dt) {
     this.sling.update(dt);
     this.particles.update(dt);
+    for (const t of this.trees) t.update(dt);
     for (const h of this.houses) for (const z of h.zones) if (z.glow > 0) z.glow = Math.max(0, z.glow - dt);
     for (const f of this.floaters) {
       f.t += dt;

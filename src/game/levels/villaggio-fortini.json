@@ -1,0 +1,111 @@
+{
+  "id": "villaggio-fortini",
+  "name": "Il villaggio · fortini",
+  "bounds": {
+    "minX": -1,
+    "maxX": 47
+  },
+  "sleigh": {
+    "x": 0.3
+  },
+  "sling": {
+    "x": 5.4,
+    "y": 2.6
+  },
+  "gifts": [
+    "standard",
+    "small",
+    "big",
+    "standard",
+    "small"
+  ],
+  "preview": 1.0,
+  "stars": [
+    1500,
+    3000,
+    4500
+  ],
+  "camera": {
+    "aimCenter": 11,
+    "aimW": 24
+  },
+  "forts": [
+    {
+      "x": 12.5,
+      "cols": 5,
+      "rows": 3,
+      "crenels": true
+    },
+    {
+      "x": 19.5,
+      "cols": 3,
+      "rows": 7,
+      "crenels": true
+    }
+  ],
+  "snowmen": [
+    {
+      "fort": 0,
+      "dx": 0
+    },
+    {
+      "x": 24.8
+    }
+  ],
+  "houses": [
+    {
+      "x": 27.5,
+      "w": 7,
+      "h": 5.0,
+      "roof": 3.0,
+      "lean": 0.7,
+      "door": {
+        "h": 2.4,
+        "points": 150
+      },
+      "windows": [
+        {
+          "y": 2.75,
+          "h": 1.95,
+          "points": 400
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 1.0,
+        "top": 1.8,
+        "h": 1.6,
+        "tilt": 12,
+        "points": 1000
+      },
+      "snowCap": true
+    },
+    {
+      "x": 38,
+      "w": 6.2,
+      "h": 4.4,
+      "roof": 2.6,
+      "lean": 0.6,
+      "door": {
+        "h": 2.1,
+        "points": 150
+      },
+      "windows": [
+        {
+          "y": 2.45,
+          "h": 1.65,
+          "points": 600
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 0.95,
+        "top": 1.7,
+        "h": 1.4,
+        "tilt": 12,
+        "points": 1000
+      },
+      "doorDrift": true
+    }
+  ]
+}

@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/icon-180.png" />
-  <title>Xmas-26 · M3</title>
+  <title>Xmas-26</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
@@ -21,8 +21,16 @@
     <div id="controls">
       <button data-action="wake" data-debug title="Tasto W">Sveglia pile</button>
       <button data-action="stress" data-debug title="Tasto S">Stress +40</button>
+      <button data-action="levels" title="Tasto L">Livelli</button>
       <button data-action="reset" title="Tasto R">Reset</button>
       <button id="fs-btn" title="Schermo intero">⛶</button>
+    </div>
+    <div id="levels" hidden>
+      <div class="levels-panel">
+        <h2>Scegli il livello</h2>
+        <div id="level-list"></div>
+        <button class="levels-close" data-action="close-levels">Chiudi</button>
+      </div>
     </div>
   </div>
   <div id="ios-hint" hidden>

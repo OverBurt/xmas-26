@@ -101,3 +101,47 @@ canvas#game {
 #ios-hint span { margin-left: 8px; opacity: 0.7; cursor: pointer; }
 
 body:not(.debug) [data-debug], body:not(.debug) #hud { display: none; }
+
+/* Selettore dei livelli */
+#levels {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 8, 26, 0.7);
+  z-index: 5;
+  font-family: system-ui, sans-serif;
+}
+#levels[hidden] { display: none; }
+.levels-panel {
+  width: min(560px, 90%);
+  max-height: 90%;
+  overflow: auto;
+  background: #16204d;
+  border: 1px solid #3c4a8a;
+  border-radius: 18px;
+  padding: 18px;
+  text-align: center;
+}
+.levels-panel h2 { font-size: 20px; margin-bottom: 12px; }
+#level-list { display: grid; gap: 8px; margin-bottom: 12px; }
+#level-list button, .levels-close {
+  font: inherit;
+  color: inherit;
+  border: 1px solid #3c4a8a;
+  border-radius: 12px;
+  background: #1f2b63;
+  padding: 10px 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#level-list button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  text-align: left;
+}
+#level-list button.current { border-color: #ffd36b; }
+#level-list .best { color: #ffd36b; font-size: 14px; white-space: nowrap; }

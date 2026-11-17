@@ -205,6 +205,13 @@ Il castello di ghiaccio non era giustificato in un villaggio di montagna: sostit
 - **Porta**: il vetro della porta cede sempre al contatto con un pacco e la zona di consegna sporge 0.55 m davanti al vetro: un pacco che arriva rotolando o scivolando a terra fino alla porta entra (verificato con tutti e tre i pacchi). Il vetro delle finestre resta da sfondare con forza.
 - **Misure**: pacco grande contro fortino + pupazzo + torre: picco 90 corpi, 60 FPS su desktop. Difficoltà (546 tiri per pacco, con neve): porta 26–28, finestre 19–22, camino 5–8 tiri validi (il camino A è tappato dalla neve).
 
+### Variante "albero di cristalli" (branch `variante-albero`, 17/11/2026)
+- Al posto dei fortini, un **albero** (alto ~8 m) con **~120 cristalli di neve** al posto delle foglie (`snowTree.js`). Tronco solido; i 4 cerchi della chioma nel JSON guidano la crescita dei rami: un ramo principale per lobo, 3–4 rametti e un ramoscello ciascuno (~30 rami). I cristalli sono **attaccati ai rami**, a passo irregolare e alternati ai due lati, con un grappolo in punta: la chioma è irregolare e i rami si vedono.
+- I cristalli **non sono corpi fisici**: a ogni step si controlla il segmento percorso dal pacco contro i cristalli (costo trascurabile anche a 24 m/s). Un cristallo attraversato si stacca e **cade ondeggiando come una foglia** (spinta iniziale nella direzione del pacco, poi caduta lenta a 0.9 m/s con oscillazione laterale e rotazione), svanisce in ~3 s. Il varco resta aperto per i lanci successivi.
+- Ogni cristallo **frena il pacco**: velocità × (1 − 0.02 / massa) → il piccolo si ferma presto, il grande sfonda. Un tiro standard nel mezzo stacca ~30 cristalli e scende da ~20 a 7 m/s. +2 punti per cristallo.
+- **Difficoltà del primo lancio** (546 tiri per pacco): porta 15–26, finestre 5–11, camino 2–9 — più difficile dei fortini (finestre 19–22) finché non si apre un varco: la scelta "sacrifico un lancio per aprire la strada" diventa centrale.
+- **Selettore dei livelli**: pulsante "Livelli" (tasto L) e pulsante nel pannello di fine livello; per ora "Il villaggio · albero" e "Il villaggio · fortini". Il livello scelto e il miglior punteggio (stelle) di ciascuno restano salvati sul dispositivo; `?level=<id>` apre direttamente un livello.
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente

@@ -1,5 +1,6 @@
 {
-  "name": "Il villaggio",
+  "id": "villaggio-albero",
+  "name": "Il villaggio · albero",
   "bounds": {
     "minX": -1,
     "maxX": 47
@@ -28,25 +29,7 @@
     "aimCenter": 11,
     "aimW": 24
   },
-  "forts": [
-    {
-      "x": 12.5,
-      "cols": 5,
-      "rows": 3,
-      "crenels": true
-    },
-    {
-      "x": 19.5,
-      "cols": 3,
-      "rows": 7,
-      "crenels": true
-    }
-  ],
   "snowmen": [
-    {
-      "fort": 0,
-      "dx": 0
-    },
     {
       "x": 24.8
     }
@@ -105,6 +88,36 @@
         "points": 1000
       },
       "doorDrift": true
+    }
+  ],
+  "trees": [
+    {
+      "x": 18,
+      "trunkH": 2.8,
+      "trunkW": 0.6,
+      "spacing": 0.62,
+      "crown": [
+        {
+          "dx": 0,
+          "dy": 2.3,
+          "r": 2.4
+        },
+        {
+          "dx": -1.9,
+          "dy": 1.2,
+          "r": 1.7
+        },
+        {
+          "dx": 1.9,
+          "dy": 1.4,
+          "r": 1.8
+        },
+        {
+          "dx": 0.2,
+          "dy": 4.0,
+          "r": 1.6
+        }
+      ]
     }
   ]
 }

@@ -5,7 +5,7 @@ import { attachInput } from './core/input.js';
 import { setupFullscreen } from './core/fullscreen.js';
 import { Game } from './game/game.js';
 import { drawScene } from './render/sceneDraw.js';
-import level1 from './game/levels/level1.json';
+import { LEVELS, findLevel } from './game/levels/index.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
 if (DEBUG) document.body.classList.add('debug');
@@ -40,8 +40,65 @@ setupFullscreen({
   onChange: resize,
 });
 
-// ---------- Gioco ----------
-const game = new Game(level1);
+// ---------- Gioco e livelli ----------
+const store = {
+  get(k, d) {
+    try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; }
+  },
+  set(k, v) {
+    try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+  },
+};
+const params = new URLSearchParams(location.search);
+const game = new Game(findLevel(params.get('level') || store.get('xmas-level', null)));
+
+// Miglior punteggio per livello (solo su questo dispositivo)
+game.onEnd = (s) => {
+  const best = store.get('xmas-best', {});
+  const prev = best[game.level.id];
+  if (!prev || s.score > prev.score) best[game.level.id] = { score: s.score, stars: s.stars };
+  store.set('xmas-best', best);
+};
+
+const levelsEl = document.getElementById('levels');
+function openLevels() {
+  const best = store.get('xmas-best', {});
+  const list = document.getElementById('level-list');
+  list.replaceChildren(
+    ...LEVELS.map((l) => {
+      const b = document.createElement('button');
+      b.dataset.level = l.id;
+      if (l.id === game.level.id) b.className = 'current';
+      const name = document.createElement('span');
+      name.textContent = l.name;
+      const rec = document.createElement('span');
+      rec.className = 'best';
+      const r = best[l.id];
+      rec.textContent = r ? `${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}  ${r.score}` : '—';
+      b.append(name, rec);
+      return b;
+    }),
+  );
+  levelsEl.hidden = false;
+}
+function closeLevels() {
+  levelsEl.hidden = true;
+}
+game.onLevels = openLevels;
+
+levelsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) {
+    if (e.target === levelsEl) closeLevels(); // tocco fuori dal pannello
+    return;
+  }
+  if (btn.dataset.level) {
+    const l = findLevel(btn.dataset.level);
+    store.set('xmas-level', l.id);
+    game.setLevel(l);
+  }
+  closeLevels();
+});
 
 attachInput(canvas, {
   down: (p) => game.pointerDown(p),
@@ -74,12 +131,15 @@ function stress() {
 document.getElementById('controls').addEventListener('click', (e) => {
   const action = e.target.dataset?.action;
   if (action === 'reset') game.reset();
+  if (action === 'levels') openLevels();
   if (action === 'wake') wakeAll();
   if (action === 'stress') stress();
 });
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'r') game.reset();
+  if (e.key === 'l') (levelsEl.hidden ? openLevels() : closeLevels());
+  if (e.key === 'Escape') closeLevels();
   if (DEBUG && e.key === 'w') wakeAll();
   if (DEBUG && e.key === 's') stress();
 });

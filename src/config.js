@@ -59,6 +59,17 @@ export const SNOW = {
   brick: { w: 0.7, h: 0.38 }, // mattoni del fortino
 };
 
+/** Albero con chioma di cristalli di neve (variante al fortino). */
+export const TREE = {
+  spacing: 0.45, // distanza tra i cristalli nella chioma (m)
+  crystalRadius: 0.14, // raggio di contatto di un cristallo
+  drag: 0.02, // frenata per cristallo: velocità × (1 − drag / massa del pacco)
+  push: 0.15, // frazione della velocità del pacco trasmessa al cristallo che si stacca
+  fallSpeed: 0.9, // velocità di caduta "a foglia" (m/s)
+  airDrag: 3, // quanto in fretta il cristallo rallenta fino alla caduta lenta
+  fallLife: 3, // secondi prima di svanire
+};
+
 /** Pupazzi di neve: corpo unico finché un colpo non li separa in palle che rotolano. */
 export const SNOWMAN = {
   splitImpulse: 0.8,
@@ -109,6 +120,7 @@ export const SLING = {
 /** Punteggio (le consegne valgono quanto indicato nel JSON del livello). */
 export const SCORE = {
   icePerBreak: 10,
+  crystal: 2, // per ogni cristallo staccato dall'albero
   allServedBonus: 1500, // premio se tutte le case ricevono almeno un pacco
 };
 
