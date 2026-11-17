@@ -75,6 +75,9 @@ export function drawScene(ctx, game, alpha) {
     } else if (ud.kind === 'glass') {
       ctx.fillStyle = 'rgba(200,240,255,0.45)';
       ctx.strokeStyle = '#effbff';
+    } else if (ud.kind === 'snow' || ud.kind === 'snowman') {
+      ctx.fillStyle = '#eef4ff';
+      ctx.strokeStyle = '#b9cbe8';
     }
 
     ctx.save();
@@ -82,17 +85,32 @@ export function drawScene(ctx, game, alpha) {
     ctx.rotate(a);
     // Detriti che stanno per svanire
     if (ud.life !== undefined && ud.life < 0.6) ctx.globalAlpha = Math.max(0, ud.life / 0.6);
-    ctx.lineWidth = 1.5 * px;
+    const soft = ud.kind === 'snow' || ud.kind === 'snowman';
+    ctx.lineWidth = (soft ? 2.5 : 1.5) * px;
+    ctx.lineJoin = 'round';
+    const fill = ctx.fillStyle;
+    const stroke = ctx.strokeStyle;
     for (let f = b.getFixtureList(); f; f = f.getNext()) {
-      const v = f.getShape().m_vertices;
-      if (!v) continue;
+      const sh = f.getShape();
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = stroke;
+      const role = f.getUserData()?.role;
+      if (role === 'foot') continue; // base piatta del pupazzo: nascosta dalla palla
       ctx.beginPath();
-      ctx.moveTo(v[0].x, v[0].y);
-      for (let i = 1; i < v.length; i++) ctx.lineTo(v[i].x, v[i].y);
-      ctx.closePath();
+      if (sh.getType() === 'circle') {
+        const c = sh.getCenter();
+        ctx.arc(c.x, c.y, sh.getRadius(), 0, Math.PI * 2);
+      } else {
+        const v = sh.m_vertices;
+        ctx.moveTo(v[0].x, v[0].y);
+        for (let i = 1; i < v.length; i++) ctx.lineTo(v[i].x, v[i].y);
+        ctx.closePath();
+      }
       ctx.fill();
       ctx.stroke();
+      if (role) drawSnowmanPart(ctx, role, sh.getCenter(), sh.getRadius(), ud.deco, px);
     }
+    if (ud.ball && ud.role) drawSnowmanPart(ctx, ud.role, { x: 0, y: 0 }, ud.r, ud.deco, px);
     if (ud.kind === 'gift') drawRibbon(ctx, GIFTS[ud.type], px);
     ctx.restore();
   }
@@ -311,6 +329,38 @@ function drawHouse(ctx, h) {
   }
   ctx.fillStyle = '#6a4458';
   for (let f = h.body.getFixtureList(); f; f = f.getNext()) fillPoly(ctx, f.getShape().m_vertices);
+}
+
+/** Dettagli del pupazzo disegnati sulla palla (ruotano con lei quando rotola). */
+function drawSnowmanPart(ctx, role, c, r, deco, px) {
+  if (!deco) return;
+  const f = deco.facing; // -1: guarda verso la fionda
+  if (role === 'head') {
+    ctx.fillStyle = '#1d1d28';
+    for (const ex of [-0.32, 0.18]) {
+      ctx.beginPath();
+      ctx.arc(c.x + ex * r * -f, c.y + r * 0.22, r * 0.09, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Naso a carota
+    ctx.fillStyle = '#f08a24';
+    ctx.beginPath();
+    ctx.moveTo(c.x + f * r * 0.15, c.y + r * 0.05);
+    ctx.lineTo(c.x + f * r * 1.05, c.y - r * 0.05);
+    ctx.lineTo(c.x + f * r * 0.15, c.y - r * 0.15);
+    ctx.fill();
+    // Sciarpa sotto la testa
+    ctx.fillStyle = deco.scarf;
+    ctx.fillRect(c.x - r * 0.85, c.y - r * 1.0, r * 1.7, r * 0.26);
+    ctx.fillRect(c.x - f * r * 0.55, c.y - r * 1.55, r * 0.26, r * 0.6);
+  } else if (role === 'mid') {
+    ctx.fillStyle = '#1d1d28';
+    for (const by of [0.35, 0, -0.35]) {
+      ctx.beginPath();
+      ctx.arc(c.x + f * r * 0.15, c.y + by * r, r * 0.07, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 }
 
 function drawGift(ctx, type, x, y, px, scale = 1) {

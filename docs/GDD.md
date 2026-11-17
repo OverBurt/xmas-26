@@ -195,6 +195,16 @@ xmas-26/
 - **Camino a imbuto** sulla falda sinistra, inclinato di 12° verso sinistra, largo 1.0 m alla base e 1.8 m in cima: ora ci entra anche il pacco grande.
 - **Difficoltà misurata** (546 tiri per pacco): camino 11–14, finestre 4–6, porta 13–33 tiri validi (prima: camino 0–2, finestre 1–3).
 
+### Prova neve: fortino, pupazzi, neve sulle aperture (17/11/2026, desktop)
+Il castello di ghiaccio non era giustificato in un villaggio di montagna: sostituito da elementi di neve (il codice del ghiaccio resta disponibile, `towers` nel JSON).
+- **Fortino di neve** (`snowFort.js`): mattoni 0.7×0.38 m sfalsati come un muro vero, con merli in cima. Molto più stabile del castello di carte (deriva 0.8 cm a pile sveglie).
+- **Rottura della neve** (`fracture.js`): un mattone si spacca in 3–4 zolle tozze con spigoli smussati (1–2 tagli irregolari, non schegge), con una nuvola di polvere lenta che si posa; le zolle piccole si sbriciolano in polvere dopo ~1.5 s, le altre si possono spaccare una volta ancora. Soglia 0.7 N·s (più fragile del ghiaccio), separazione dei pezzi bassa: la neve si accascia invece di esplodere. **Assorbe**: il pacco che sfonda la neve perde il 20% di velocità.
+- **Pupazzi** (`snowman.js`): un solo corpo (tre palle + base piatta, sta in piedi) finché un colpo non lo separa in palle che rotolano; la testa con carota e occhi rotola con la palla. Una palla grande colpita forte si sbriciola in zolle, una piccola in polvere.
+- **Neve sulle aperture**: cappello di neve sul camino (casa A) da far cadere o sbriciolare; cumulo di neve contro la porta (casa B). I loro pezzi si sciolgono via presto.
+- **Aperture al massimo**: casa A alta 5 m con porta 2.4 m e finestra 1.95 m, casa B alta 4.4 m con porta 2.1 m e finestra 1.65 m (resta solo un architrave sottile).
+- **Porta**: il vetro della porta cede sempre al contatto con un pacco e la zona di consegna sporge 0.55 m davanti al vetro: un pacco che arriva rotolando o scivolando a terra fino alla porta entra (verificato con tutti e tre i pacchi). Il vetro delle finestre resta da sfondare con forza.
+- **Misure**: pacco grande contro fortino + pupazzo + torre: picco 90 corpi, 60 FPS su desktop. Difficoltà (546 tiri per pacco, con neve): porta 26–28, finestre 19–22, camino 5–8 tiri validi (il camino A è tappato dalla neve).
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente

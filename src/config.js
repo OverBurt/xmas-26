@@ -42,6 +42,30 @@ export const ICE = {
   breakImpulse: 1.4,
 };
 
+/**
+ * Neve compatta (mattoni del fortino, cumuli sulle aperture, pupazzi).
+ * Si sbriciola in zolle e poi in polvere; assorbe parte della velocità del pacco.
+ */
+export const SNOW = {
+  density: 0.55,
+  friction: 0.9,
+  restitution: 0.02,
+  breakImpulse: 0.7, // impulso per rompere un blocco intero
+  levelFactor: 1.3, // le zolle richiedono un colpo più forte
+  debrisArea: 0.07, // zolle più piccole (m²) si sbriciolano da sole dopo poco
+  debrisLife: 1.4,
+  kick: 0.35, // separazione delle zolle (m/s): la neve non "esplode" come il ghiaccio
+  absorb: 0.8, // velocità residua del pacco dopo aver sfondato un blocco
+  brick: { w: 0.7, h: 0.38 }, // mattoni del fortino
+};
+
+/** Pupazzi di neve: corpo unico finché un colpo non li separa in palle che rotolano. */
+export const SNOWMAN = {
+  splitImpulse: 0.8,
+  ballImpulse: 1.6, // una palla si sbriciola solo con un colpo deciso
+  radii: [0.5, 0.37, 0.27],
+};
+
 /** Vetri di porte e finestre: si infrangono se l'urto supera la soglia, altrimenti il pacco rimbalza. */
 export const GLASS = {
   breakImpulse: 0.8, // massa × velocità d'impatto normale (N·s)

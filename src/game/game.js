@@ -4,6 +4,8 @@ import { PhysicsWorld } from '../physics/world.js';
 import { predictTrajectory } from '../physics/trajectory.js';
 import { buildIceTower } from '../entities/iceTower.js';
 import { buildHouse, zoneAt } from '../entities/house.js';
+import { buildSnowFort } from '../entities/snowFort.js';
+import { buildSnowman } from '../entities/snowman.js';
 import { launchGift } from '../entities/gift.js';
 import { Slingshot } from '../entities/slingshot.js';
 import { Sleigh } from '../entities/sleigh.js';
@@ -29,8 +31,18 @@ export class Game {
   reset() {
     const L = this.level;
     this.pw = new PhysicsWorld();
-    this.slabs = L.towers.flatMap((t) => buildIceTower(this.pw, t.x, t.floors));
+    // Corpi che si rompono / svaniscono: ghiaccio, neve, pupazzi, schegge di vetro
+    this.slabs = (L.towers || []).flatMap((t) => buildIceTower(this.pw, t.x, t.floors));
+    this.forts = (L.forts || []).map((f) => buildSnowFort(this.pw, f));
+    for (const f of this.forts) this.slabs.push(...f.bodies);
+    for (const sm of L.snowmen || []) {
+      // "fort": indice di un fortino → il pupazzo sta in cima, al centro
+      const f = sm.fort !== undefined ? this.forts[sm.fort] : null;
+      const x = f ? (f.x0 + f.x1) / 2 + (sm.dx || 0) : sm.x;
+      this.slabs.push(buildSnowman(this.pw, x, f ? f.top : 0));
+    }
     this.houses = L.houses.map((h) => buildHouse(this.pw, h));
+    for (const h of this.houses) this.slabs.push(...h.plugs);
     this.sleigh = new Sleigh(L.sleigh.x, L.gifts);
     this.sling = new Slingshot(L.sling.x, L.sling.y);
     this.thrown = []; // corpi dei pacchi lanciati
@@ -68,7 +80,9 @@ export class Game {
       if (!n) return;
       const v = other.getLinearVelocity();
       const vn = Math.abs(v.x * n.x + v.y * n.y);
-      if (other.getMass() * vn > GLASS.breakImpulse) {
+      // Porta: un pacco che arriva rotolando o scivolando a terra entra sempre.
+      const giftAtDoor = ud.opening === 'door' && other.getUserData()?.kind === 'gift';
+      if (giftAtDoor || other.getMass() * vn > GLASS.breakImpulse) {
         ud.broken = true;
         contact.setEnabled(false);
         this.glassQueue.push({ pane, by: other, vx: v.x, vy: v.y });
@@ -77,7 +91,7 @@ export class Game {
 
     this.pw.onImpulse = (body, impulse, other) => {
       const ud = body.getUserData();
-      if (!ud || ud.kind !== 'ice') return;
+      if (!ud || (ud.kind !== 'ice' && ud.kind !== 'snow' && ud.kind !== 'snowman')) return;
       if (impulse > this.stats.maxImpulse) this.stats.maxImpulse = impulse;
       this.fracture.hit(body, impulse, other);
     };

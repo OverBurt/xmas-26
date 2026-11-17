@@ -16,7 +16,8 @@ Il server è esposto in rete locale (`--host`): per provarlo su smartphone apri 
 - **Un solo gesto**: trascina un pacco dalla slitta fino alla fionda, si arma da solo e continuando a trascinare indietro prendi la mira. Rilascia per lanciare.
 - **Dalla fionda**: se è vuota, tocca e tira direttamente la fionda: si arma con il primo pacco della slitta.
 - Un tocco su un pacco lo carica; toccandone un altro li scambi. Un trascinamento troppo corto annulla il lancio (il pacco resta caricato).
-- Il ghiaccio si rompe in schegge quando viene colpito forte (il pacco grande sfonda, il piccolo quasi non rompe); le schegge piccole svaniscono dopo qualche secondo.
+- Fortini di neve e pupazzi si sbriciolano quando vengono colpiti forte (il pacco grande sfonda, il piccolo quasi non rompe); i pupazzi si separano in palle che rotolano. Neve sul camino e davanti alla porta va tolta prima di consegnare da lì.
+- Un pacco che arriva fino alla porta (anche rotolando a terra) entra sempre.
 - Consegna i pacchi nelle case: **camino** 1000 punti, **finestre** 400–600, **porta** 150. Porte e finestre hanno un vetro: va colpito abbastanza forte per sfondarlo. Ogni lastra rotta vale 10; servendo tutte le case +1500. Il livello finisce quando hai lanciato tutti i pacchi.
 - La camera segue il pacco e poi torna alla fionda; tocca lo schermo per saltare l'attesa.
 - Trascinando su uno spazio vuoto sposti la visuale (torna da sola dopo 2 s).

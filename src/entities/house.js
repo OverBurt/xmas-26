@@ -1,6 +1,7 @@
-import { Polygon, Vec2 } from 'planck';
+import { Polygon, Vec2, Settings } from 'planck';
 import { GROUND_Y } from '../config.js';
 import { centroid } from '../physics/polygon.js';
+import { createIceBody } from '../physics/fracture.js';
 
 /**
  * Casa vista in sezione ("casa delle bambole").
@@ -17,7 +18,8 @@ import { centroid } from '../physics/polygon.js';
  * Definizione (JSON del livello):
  *  { x, w, h, roof, lean,
  *    door: {h, points}, windows: [{y, h, points}],
- *    chimney: {pos, bottom, top, h, tilt, points} }
+ *    chimney: {pos, bottom, top, h, tilt, points},
+ *    snowCap: bool (cappello di neve sul camino), doorDrift: bool (cumulo davanti alla porta) }
  *  chimney.pos: posizione lungo la falda sinistra (0 = gronda, 1 = colmo)
  *  chimney.bottom/top: larghezza interna alla base e in cima; tilt: gradi verso sinistra
  */
@@ -25,7 +27,16 @@ export const WALL = 0.28;
 const EAVE = 0.35;
 const CHIMNEY_WALL = 0.14;
 const ZONE_DEPTH = 0.6;
+const DOOR_REACH = 0.55; // la zona della porta sporge davanti al vetro: metà del pacco grande (0.4) + vetro + margine
 const PANE = 0.045; // mezzo spessore del vetro
+const SKIN = 2 * Settings.polygonRadius - Settings.linearSlop; // distanza a riposo tra poligoni
+
+/** Neve che tappa un'apertura: dorme finché non viene colpita, i suoi pezzi si sciolgono presto. */
+function snowPlug(pw, poly, x, y, angle) {
+  const b = createIceBody(pw, poly, x, y, angle, 0, false, 'snow');
+  b.getUserData().plug = true;
+  return b;
+}
 
 export function buildHouse(pw, def) {
   const { x, w, h, roof, lean = 0, door, windows = [], chimney } = def;
@@ -63,13 +74,16 @@ export function buildHouse(pw, def) {
 
   const zones = [];
   const panes = [];
+  const plugs = [];
 
   // Aperture: zona dietro il muro + vetro al centro dello spessore
   for (const gap of gaps) {
     zones.push({
       type: gap.type,
       points: gap.points,
-      poly: leftQuad(gap.y0, gap.y1, WALL, WALL + ZONE_DEPTH),
+      // Finestre: basta che il centro del pacco superi il vetro.
+      // Porta: conta già un pacco arrivato a contatto (rotolando o scivolando a terra).
+      poly: leftQuad(gap.y0, gap.y1, gap.type === 'door' ? WALL / 2 - DOOR_REACH : WALL / 2, WALL + ZONE_DEPTH),
       glow: 0,
     });
     const pane = leftQuad(gap.y0, gap.y1, WALL / 2 - PANE, WALL / 2 + PANE);
@@ -77,7 +91,7 @@ export function buildHouse(pw, def) {
     const pb = pw.world.createBody({ type: 'static', position: new Vec2(c.x, c.y) });
     const local = pane.map((p) => ({ x: p.x - c.x, y: p.y - c.y }));
     pb.createFixture({ shape: new Polygon(local.map((p) => new Vec2(p.x, p.y))), friction: 0.3, restitution: 0.1 });
-    pb.setUserData({ kind: 'glass', pane: true, poly: local, broken: false });
+    pb.setUserData({ kind: 'glass', pane: true, opening: gap.type, poly: local, broken: false });
     panes.push(pb);
   }
 
@@ -104,12 +118,36 @@ export function buildHouse(pw, def) {
       poly: [T(-bw, below), T(bw, below), T(tw, H - 0.25), T(-tw, H - 0.25)],
       glow: 0,
     });
-    chimneyGeom = { wallL, wallR, mouth: [T(-tw, H), T(tw, H)], top: T(0, H) };
+    chimneyGeom = { wallL, wallR, mouth: [T(-tw, H), T(tw, H)], top: T(0, H), angle: a };
+
+    // Cappello di neve che tappa il camino: va fatto cadere o sbriciolato prima di poterci entrare
+    if (def.snowCap) {
+      const hw = tw + CHIMNEY_WALL + 0.12;
+      const lid = [
+        { x: -hw, y: -0.16 },
+        { x: hw, y: -0.16 },
+        { x: hw * 0.9, y: 0.08 },
+        { x: hw * 0.5, y: 0.2 },
+        { x: -hw * 0.5, y: 0.2 },
+        { x: -hw * 0.9, y: 0.08 },
+      ];
+      const c = T(0, H + 0.16 + SKIN);
+      plugs.push(snowPlug(pw, lid, c.x, c.y, a));
+    }
+  }
+
+  // Cumulo di neve contro la porta (spinto dal vento): copre il vetro finché non viene sfondato
+  if (def.doorDrift && door) {
+    const dh = Math.min(door.h * 0.75, 1.35);
+    const right = (yy) => xl(yy) + WALL / 2 - PANE - SKIN;
+    const world = [P(x - 1.6, 0), P(right(0), 0), P(right(dh), dh), P(x - 0.45, dh)];
+    const c = centroid(world);
+    plugs.push(snowPlug(pw, world.map((p) => ({ x: p.x - c.x, y: p.y - c.y })), c.x, c.y + SKIN, 0));
   }
 
   body.setUserData({ kind: 'house' });
   const interior = [P(xl(0) + WALL, 0), P(xr(0) - WALL, 0), P(xr(h) - WALL, h), P(xl(h) + WALL, h)];
-  return { body, def, zones, panes, interior, chimney: chimneyGeom, served: 0 };
+  return { body, def, zones, panes, plugs, interior, chimney: chimneyGeom, served: 0 };
 }
 
 /** Punto dentro un poligono convesso (vertici in senso antiorario). */
