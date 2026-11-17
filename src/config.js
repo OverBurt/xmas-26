@@ -14,7 +14,8 @@ export const CAMERA = {
   lookAhead: 0.25, // secondi di anticipo sulla velocità del pacco
   flightViewW: 30, // zoom durante il volo
   followMarginTop: 2.5, // spazio sopra il pacco inseguito (m)
-  pullZoomOut: 5, // metri di zoom-out extra a tensione massima
+  pullZoomOut: 7, // metri di zoom-out extra a tensione massima
+  aimBehind: 1.2, // durante la mira: margine a sinistra oltre la tensione massima, dietro la fionda
 };
 
 export const GRAVITY = -10;
@@ -56,6 +57,7 @@ export const SNOW = {
   debrisLife: 1.4,
   kick: 0.35, // separazione delle zolle (m/s): la neve non "esplode" come il ghiaccio
   absorb: 0.8, // velocità residua del pacco dopo aver sfondato un blocco
+  groundFactor: 0.2, // cadendo a terra la soglia di rottura è il 20%: un mattone si rompe già da ~40–50 cm
   brick: { w: 0.7, h: 0.38 }, // mattoni del fortino
 };
 
@@ -93,6 +95,7 @@ export const FRACTURE = {
   levelFactor: 1.4, // ogni livello richiede un impulso più forte
   minLength: 0.45, // pezzi più corti non si rompono più
   maxBodies: 130, // budget di corpi dinamici: oltre, le rotture vengono saltate
+  minImpactSpeed: 0.6, // m/s: sotto questa velocità d'impatto nulla si rompe (pile che si assestano)
   debrisArea: 0.05, // pezzi più piccoli (m²) svaniscono dopo qualche secondo
   debrisLife: 3,
   kick: 0.6, // velocità di separazione dei pezzi (m/s)
@@ -122,6 +125,11 @@ export const SCORE = {
   icePerBreak: 10,
   crystal: 2, // per ogni cristallo staccato dall'albero
   allServedBonus: 1500, // premio se tutte le case ricevono almeno un pacco
+};
+
+/** Regia d'apertura del livello: un unico movimento continuo case → panoramica → lancio. */
+export const INTRO = {
+  duration: 4.2, // secondi (lento in partenza sulle case e in arrivo sulla fionda)
 };
 
 /** Tempi del turno (s). */

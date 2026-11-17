@@ -1,4 +1,4 @@
-import { CAMERA, SLING, TURN, TRAJECTORY, SCORE, GLASS, VIEW_W, VIEW_H } from '../config.js';
+import { CAMERA, SLING, TURN, TRAJECTORY, SCORE, GLASS, INTRO, VIEW_W, VIEW_H } from '../config.js';
 import { Camera } from '../core/camera.js';
 import { PhysicsWorld } from '../physics/world.js';
 import { predictTrajectory } from '../physics/trajectory.js';
@@ -7,6 +7,8 @@ import { buildHouse, zoneAt } from '../entities/house.js';
 import { buildSnowFort } from '../entities/snowFort.js';
 import { buildSnowman } from '../entities/snowman.js';
 import { SnowTree } from '../entities/snowTree.js';
+import { buildHill } from '../entities/hill.js';
+import { buildIgloo } from '../entities/igloo.js';
 import { launchGift } from '../entities/gift.js';
 import { Slingshot } from '../entities/slingshot.js';
 import { Sleigh } from '../entities/sleigh.js';
@@ -17,6 +19,7 @@ import { centroid } from '../physics/polygon.js';
 
 /**
  * Stati del turno:
+ *  intro  → regia d'apertura (case → panoramica → zona di lancio), un tocco la salta
  *  ready  → in attesa: si prende un pacco dalla slitta, lo si carica, si mira
  *  flight → pacco in volo, la camera lo segue
  *  settle → il pacco è fermo/uscito, si aspetta che la scena si assesti
@@ -42,15 +45,28 @@ export class Game {
     this.pw = new PhysicsWorld();
     // Corpi che si rompono / svaniscono: ghiaccio, neve, pupazzi, schegge di vetro
     this.slabs = (L.towers || []).flatMap((t) => buildIceTower(this.pw, t.x, t.floors));
-    this.forts = (L.forts || []).map((f) => buildSnowFort(this.pw, f));
+    // I merli su cui sta un pupazzo non devono mancare
+    this.forts = (L.forts || []).map((f, i) => {
+      const keep = (L.snowmen || []).filter((sm) => sm.fort === i && sm.merlon !== undefined).map((sm) => sm.merlon);
+      return buildSnowFort(this.pw, { ...f, keepMerlons: [...(f.keepMerlons || []), ...keep] });
+    });
     for (const f of this.forts) this.slabs.push(...f.bodies);
     this.trees = (L.trees || []).map((t) => new SnowTree(this.pw, t));
+    // Igloo, eventualmente con un pupazzo in cima
+    for (const ig of L.igloos || []) {
+      const igloo = buildIgloo(this.pw, ig);
+      this.slabs.push(...igloo.bodies);
+      if (ig.snowman) this.slabs.push(buildSnowman(this.pw, igloo.cx, igloo.top));
+    }
+    this.hills = (L.hills || []).map((h) => buildHill(this.pw, h));
     for (const sm of L.snowmen || []) {
       // "fort": indice di un fortino → il pupazzo sta in cima, al centro
       if (sm.fort !== undefined && !this.forts[sm.fort]) continue;
       const f = sm.fort !== undefined ? this.forts[sm.fort] : null;
-      const x = f ? (f.x0 + f.x1) / 2 + (sm.dx || 0) : sm.x;
-      this.slabs.push(buildSnowman(this.pw, x, f ? f.top : 0));
+      // "merlon": indice del merlo su cui sta il pupazzo; altrimenti al centro del fortino
+      const m = f && sm.merlon !== undefined ? f.merlons[sm.merlon] : null;
+      const x = m ? (m.x0 + m.x1) / 2 : f ? (f.x0 + f.x1) / 2 + (sm.dx || 0) : sm.x;
+      this.slabs.push(buildSnowman(this.pw, x, f ? f.top : sm.y || 0));
     }
     this.houses = L.houses.map((h) => buildHouse(this.pw, h));
     for (const h of this.houses) this.slabs.push(...h.plugs);
@@ -74,10 +90,10 @@ export class Game {
     this.particles = new Particles();
     this.fracture = new Fracture(this.pw, this.particles);
 
-    // Vetri: se l'urto è abbastanza forte il contatto viene annullato (il pacco passa)
-    // e il vetro si frantuma dopo lo step; altrimenti il pacco rimbalza normalmente.
+    // Vetri: il contatto viene annullato (il pacco passa) e il vetro si frantuma dopo lo step.
     this.glassQueue = [];
     this.pw.onPreSolve = (contact) => {
+      this.checkChimneyEdge(contact); // anche contatti iniziati fuori che scivolano sullo spigolo
       let pane = contact.getFixtureA().getBody();
       let other = contact.getFixtureB().getBody();
       if (pane.getUserData()?.kind !== 'glass') [pane, other] = [other, pane];
@@ -91,24 +107,84 @@ export class Game {
       if (!n) return;
       const v = other.getLinearVelocity();
       const vn = Math.abs(v.x * n.x + v.y * n.y);
-      // Porta: un pacco che arriva rotolando o scivolando a terra entra sempre.
-      const giftAtDoor = ud.opening === 'door' && other.getUserData()?.kind === 'gift';
-      if (giftAtDoor || other.getMass() * vn > GLASS.breakImpulse) {
+      // Un pacco rompe sempre il vetro di porte e finestre (anche arrivando piano o rotolando);
+      // gli altri oggetti (neve, schegge, pupazzi) solo se l'urto supera la soglia.
+      const byGift = other.getUserData()?.kind === 'gift';
+      if (byGift || other.getMass() * vn > GLASS.breakImpulse) {
         ud.broken = true;
         contact.setEnabled(false);
         this.glassQueue.push({ pane, by: other, vx: v.x, vy: v.y });
       }
     };
 
-    this.pw.onImpulse = (body, impulse, other) => {
+    // Pacco che tocca il lato interno del camino (spigolo della bocca compreso): consegnato.
+    // La consegna avviene dopo lo step (il mondo non si modifica dentro una callback).
+    this.pendingDeliveries = [];
+    this.pw.onBeginContact = (contact) => this.checkChimneyEdge(contact);
+
+    this.pw.onImpulse = (body, impulse, other, speed) => {
       const ud = body.getUserData();
       if (!ud || (ud.kind !== 'ice' && ud.kind !== 'snow' && ud.kind !== 'snowman')) return;
       if (impulse > this.stats.maxImpulse) this.stats.maxImpulse = impulse;
-      this.fracture.hit(body, impulse, other);
+      this.fracture.hit(body, impulse, other, speed);
     };
 
+    this.startIntro();
+  }
+
+  // ---------------------------------------------------------------- intro
+
+  /**
+   * Regia d'apertura del livello: zoom sulle case → panoramica su tutto lo stage →
+   * zoom sulla zona di lancio (slitta e fionda). Un tocco la salta.
+   */
+  startIntro() {
+    const cam = this.camera;
+    const L = this.level;
+    // Inquadratura delle case: larga quanto basta per contenerle tutte, camini compresi
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let top = 0;
+    for (const h of this.houses) {
+      const d = h.def;
+      x0 = Math.min(x0, d.x - 1.5);
+      x1 = Math.max(x1, d.x + d.w + 1.5);
+      top = Math.max(top, (d.y || 0) + d.h + d.roof + (d.chimney?.h || 0) + 1);
+    }
+    const fitW = (w, topY) => Math.max(w, ((topY - CAMERA.bottom) * VIEW_W) / VIEW_H);
+    const houses = { cx: (x0 + x1) / 2, w: fitW(x1 - x0, top) };
+    const pano = { cx: (L.bounds.minX + L.bounds.maxX) / 2, w: L.bounds.maxX - L.bounds.minX };
+    const aim = { cx: L.camera.aimCenter, w: L.camera.aimW };
+    // Un unico movimento continuo: curva (Bézier quadratica) che parte dalle case,
+    // si allarga passando vicino alla panoramica senza fermarsi e arriva sulla zona di lancio.
+    this.intro = { t: 0, from: houses, via: pano, to: aim, duration: INTRO.duration };
+    cam.follow = null;
+    cam.cx = houses.cx;
+    cam.viewW = houses.w;
+    cam.clamp();
+    this.setState('intro');
+  }
+
+  /** Avanza la regia; a fine intro si passa allo stato "ready". */
+  updateIntro(dt) {
+    const it = this.intro;
+    it.t += dt;
+    if (it.t >= it.duration) {
+      this.endIntro();
+      return;
+    }
+    const k = ease(it.t / it.duration);
+    const bez = (a, b, c) => (1 - k) * (1 - k) * a + 2 * (1 - k) * k * b + k * k * c;
+    this.camera.cx = bez(it.from.cx, it.via.cx, it.to.cx);
+    this.camera.viewW = bez(it.from.w, it.via.w, it.to.w);
+    this.camera.clamp();
+  }
+
+  endIntro() {
+    this.intro = null;
+    this.setState('ready');
     this.aimView();
-    this.camera.snap();
+    // se l'intro è stata saltata la camera raggiunge la fionda con il suo inseguimento morbido
   }
 
   /** Punteggio totale: consegne + ghiaccio rotto + bonus pacchi avanzati. */
@@ -122,6 +198,26 @@ export class Game {
 
   get giftsLeft() {
     return this.sleigh.count + (this.sling.loaded ? 1 : 0) + (this.carry ? 1 : 0);
+  }
+
+  /** Pacco che tocca il lato interno del camino (spigolo della bocca compreso): consegna in coda. */
+  checkChimneyEdge(contact) {
+    let fx = contact.getFixtureA();
+    let gift = contact.getFixtureB().getBody();
+    if (fx.getUserData()?.part !== 'chimney') [fx, gift] = [contact.getFixtureB(), fx.getBody()];
+    if (fx.getUserData()?.part !== 'chimney' || gift.getUserData()?.kind !== 'gift') return;
+    const house = this.houses.find((h) => h.body === fx.getBody());
+    const wm = contact.getWorldManifold(null);
+    const n = contact.getManifold().pointCount;
+    if (!house || !wm) return;
+    for (let i = 0; i < n; i++) {
+      const p = wm.points[i];
+      if (house.chimney.inner.some(([a, b]) => distToSegment(p, a, b) < CHIMNEY_EDGE)) {
+        const zone = house.zones.find((z) => z.type === 'chimney');
+        if (!this.pendingDeliveries.some((d) => d.gift === gift)) this.pendingDeliveries.push({ gift, house, zone });
+        return;
+      }
+    }
   }
 
   aimView() {
@@ -141,6 +237,10 @@ export class Game {
     const w = this.camera.screenToWorld(p.x, p.y);
     this.panIdle = null;
 
+    if (this.state === 'intro') {
+      this.endIntro(); // tocco durante l'intro: si salta
+      return;
+    }
     if (this.state === 'end') {
       const b = this.buttons.find((b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
       if (b?.action === 'retry') this.reset();
@@ -240,9 +340,12 @@ export class Game {
     const v = s.velocity;
     const steps = Math.round(TRAJECTORY.steps * this.level.preview);
     this.trajectory = predictTrajectory(s.loadX, s.loadY, v.vx, v.vy, steps);
-    // Leggero zoom-out man mano che si tende l'elastico
-    const c = this.level.camera;
-    this.camera.setTarget(c.aimCenter + s.tension * CAMERA.pullZoomOut * 0.5, c.aimW + s.tension * CAMERA.pullZoomOut);
+    // Mirando la slitta non serve più: il bordo sinistro si ferma poco dietro la fionda
+    // (spazio per il pacco tirato indietro) e tutto il resto dell'inquadratura va verso destra;
+    // tendendo l'elastico la camera si allarga ancora.
+    const w = this.level.camera.aimW + s.tension * CAMERA.pullZoomOut;
+    const left = s.x - SLING.maxPull - CAMERA.aimBehind;
+    this.camera.setTarget(left + w / 2, w);
   }
 
   launch(shot) {
@@ -369,6 +472,14 @@ export class Game {
       if (ud.flash > 0) ud.flash = Math.max(0, ud.flash - dt * 2);
     }
 
+    // Consegne dal bordo interno del camino
+    for (const d of this.pendingDeliveries) {
+      if (!this.thrown.includes(d.gift)) continue; // già consegnato o uscito
+      this.deliver(d.gift, d.house, d.zone);
+      this.thrown = this.thrown.filter((g) => g !== d.gift);
+    }
+    this.pendingDeliveries = [];
+
     // Consegne e pacchi usciti dal mondo
     const b = this.level.bounds;
     this.thrown = this.thrown.filter((g) => {
@@ -415,6 +526,23 @@ export class Game {
       this.panIdle = null;
       if (this.state === 'ready') this.aimView();
     }
-    this.camera.update(dt);
+    if (this.state === 'intro') this.updateIntro(dt);
+    else this.camera.update(dt);
   }
+}
+
+/** Accelera e rallenta (ease-in-out cubica). */
+function ease(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+/** Tolleranza (m) per considerare un contatto sul lato interno del camino (metà del bordo superiore). */
+const CHIMNEY_EDGE = 0.07;
+
+function distToSegment(p, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy);
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
 }

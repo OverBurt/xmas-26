@@ -1,6 +1,6 @@
 {
   "id": "villaggio-fortini",
-  "name": "Il villaggio · fortini",
+  "name": "Il villaggio · fortini e igloo",
   "bounds": {
     "minX": -1,
     "maxX": 47
@@ -31,25 +31,27 @@
   },
   "forts": [
     {
-      "x": 12.5,
-      "cols": 5,
-      "rows": 3,
-      "crenels": true
+      "x": 10.0,
+      "arches": 2,
+      "pierRows": 3,
+      "upperRows": 1,
+      "ice": {
+        "sculpture": "piramide"
+      }
     },
     {
-      "x": 19.5,
-      "cols": 3,
-      "rows": 7,
-      "crenels": true
+      "x": 21.0,
+      "arches": 1,
+      "pierRows": 4,
+      "upperRows": 1,
+      "ice": {
+        "sculpture": "torre"
+      }
     }
   ],
   "snowmen": [
     {
-      "fort": 0,
-      "dx": 0
-    },
-    {
-      "x": 24.8
+      "x": 25.6
     }
   ],
   "houses": [
@@ -106,6 +108,13 @@
         "points": 1000
       },
       "doorDrift": true
+    }
+  ],
+  "igloos": [
+    {
+      "x": 17.9,
+      "r": 1.2,
+      "snowman": true
     }
   ]
 }

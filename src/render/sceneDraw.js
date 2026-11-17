@@ -50,13 +50,17 @@ export function drawScene(ctx, game, alpha) {
   ctx.fillRect(left - 1, camera.bottom - 1, camera.viewW + 2, -camera.bottom + 1);
 
   // Interni delle case (stanza calda dietro le aperture)
+  // Colline innevate (stesso colore del terreno)
+  ctx.fillStyle = '#dfe8ff';
+  for (const hl of game.hills) fillPoly(ctx, hl.poly);
+
   for (const h of game.houses) drawHouse(ctx, h);
   for (const t of game.trees) drawTree(ctx, t, px);
 
   // Corpi fisici (statici e dinamici), interpolati
   for (let b = pw.world.getBodyList(); b; b = b.getNext()) {
     const ud = b.getUserData();
-    if (!ud || ud.kind === 'ground' || ud.kind === 'house' || ud.kind === 'tree') continue;
+    if (!ud || ud.kind === 'ground' || ud.kind === 'house' || ud.kind === 'tree' || ud.kind === 'hill') continue;
     const p = b.getPosition();
     const prev = pw.prev.get(b);
     const x = prev ? lerp(prev.x, p.x, alpha) : p.x;
@@ -64,9 +68,9 @@ export function drawScene(ctx, game, alpha) {
     const a = prev ? lerp(prev.a, b.getAngle(), alpha) : b.getAngle();
 
     if (ud.kind === 'ice') {
-      const hot = ud.flash > 0;
-      ctx.fillStyle = hot ? `rgba(255,80,80,${0.3 + 0.5 * ud.flash})` : 'rgba(140,210,255,0.35)';
-      ctx.strokeStyle = hot ? '#ff6b6b' : '#bfe8ff';
+      // cristalli più luminosi delle lastre
+      ctx.fillStyle = ud.crystal || ud.prism ? 'rgba(170,235,255,0.6)' : 'rgba(140,210,255,0.4)';
+      ctx.strokeStyle = ud.crystal ? '#f0fcff' : '#bfe8ff';
     } else if (ud.kind === 'gift') {
       ctx.fillStyle = GIFTS[ud.type].color;
       ctx.strokeStyle = '#fff';
@@ -110,6 +114,32 @@ export function drawScene(ctx, game, alpha) {
       ctx.fill();
       ctx.stroke();
       if (role) drawSnowmanPart(ctx, role, sh.getCenter(), sh.getRadius(), ud.deco, px);
+      // Prismi di ghiaccio: faccetta interna (il contorno rimpicciolito) come in una gemma
+      if (ud.prism && sh.m_vertices) {
+        const v = sh.m_vertices;
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath();
+        v.forEach((q, i) => (i ? ctx.lineTo(q.x * 0.55, q.y * 0.55) : ctx.moveTo(q.x * 0.55, q.y * 0.55)));
+        ctx.closePath();
+        for (const q of v) {
+          ctx.moveTo(q.x, q.y);
+          ctx.lineTo(q.x * 0.55, q.y * 0.55);
+        }
+        ctx.stroke();
+        ctx.strokeStyle = stroke;
+      }
+      // Cristallo: spigolo centrale chiaro dalla base alla punta (sfaccettatura)
+      if (ud.crystal && sh.m_vertices?.length === 5) {
+        const v = sh.m_vertices;
+        let tip = v[0];
+        for (const q of v) if (q.y > tip.y) tip = q;
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath();
+        ctx.moveTo((v[0].x + v[1].x) / 2, Math.min(...v.map((q) => q.y)));
+        ctx.lineTo(tip.x, tip.y);
+        ctx.stroke();
+        ctx.strokeStyle = stroke;
+      }
     }
     if (ud.ball && ud.role) drawSnowmanPart(ctx, ud.role, { x: 0, y: 0 }, ud.r, ud.deco, px);
     if (ud.kind === 'gift') drawRibbon(ctx, GIFTS[ud.type], px);
@@ -215,6 +245,7 @@ export function drawScene(ctx, game, alpha) {
 
   drawWorldLabels(ctx, game);
   drawHud(ctx, game);
+  if (game.state === 'intro' && game.intro) drawIntroTitle(ctx, game);
   if (game.state === 'end' && game.summary) drawSummary(ctx, game);
 }
 
@@ -246,6 +277,30 @@ function drawWorldLabels(ctx, game) {
     ctx.strokeText(f.text, sx(f.x), sy(f.y));
     ctx.fillStyle = '#ffd36b';
     ctx.fillText(f.text, sx(f.x), sy(f.y));
+  }
+  ctx.restore();
+}
+
+/** Nome del livello al centro mentre la camera mostra le case (dissolvenza in entrata e uscita). */
+function drawIntroTitle(ctx, game) {
+  const t = game.intro.t;
+  const a = Math.min(1, t / 0.3) * Math.min(1, Math.max(0, (1.9 - t) / 0.6)); // sparisce mentre la camera si allarga
+  if (a <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '800 52px system-ui, sans-serif';
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(5,8,26,0.6)';
+  const [title, sub] = game.level.name.split(' · ');
+  ctx.strokeText(title, VIEW_W / 2, VIEW_H * 0.3);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(title, VIEW_W / 2, VIEW_H * 0.3);
+  if (sub) {
+    ctx.font = '500 24px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillText(sub, VIEW_W / 2, VIEW_H * 0.3 + 46);
   }
   ctx.restore();
 }
@@ -495,6 +550,7 @@ function drawHud(ctx, game) {
     if (game.sling.loaded) hint = 'Tira indietro il pacco e rilascia';
     else hint = 'Trascina un pacco sulla fionda e tira indietro, o tira direttamente dalla fionda';
   } else if (game.state === 'settle') hint = 'Tocca per continuare';
+  else if (game.state === 'intro') hint = 'Tocca per saltare';
 
   if (hint) {
     ctx.font = '500 18px system-ui, sans-serif';

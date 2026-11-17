@@ -1,4 +1,7 @@
-# Xmas-26 — Game Design & Technical Document (bozza v0.1)
+# Xmas-26 — Game Design & Technical Document
+
+> **Stato attuale e passaggio di consegne: [HANDOFF.md](HANDOFF.md).** Questo documento contiene il progetto iniziale (§1–§6, aggiornati dove indicato)
+> e, dal §7, la storia cronologica delle iterazioni con le misure fatte. In caso di contrasto vale l'ultima sezione cronologica / HANDOFF.
 
 > Gioco-biglietto di auguri: fionda + fisica, pacchi regalo da consegnare alle case attraverso camino, finestre o porta.
 > Target: smartphone in orizzontale (primario) + desktop (riquadro con proporzioni da smartphone orizzontale).
@@ -11,19 +14,18 @@
 |---|---|
 | Munizioni | 5 pacchi regalo colorati, impilati su una slitta a sinistra |
 | Lancio | Drag del pacco dalla slitta alla fionda → tensione = potenza, direzione = angolo, anteprima traiettoria nell'HUD → rilascio |
-| Ostacoli | "Castelli di carte" di lastre di ghiaccio al centro: si rompono e crollano fisicamente |
+| Ostacoli | Fortini di neve ad arcate con sculture di ghiaccio, igloo, pupazzi, albero di cristalli: si rompono e crollano fisicamente (in origine "castelli di carte" di ghiaccio, poi sostituiti) |
 | Bersagli | Case a destra con 3 tipi di ingresso; colpire muri/tetto = rimbalzo |
 | Punteggio | Camino = alto · Finestre = medio (variabile per difficoltà) · Porta = basso |
 | Strategia | Sacrificare un lancio per abbattere la barriera **oppure** tentare lo scavalcamento |
-| Fine livello | Pacchi esauriti e scena ferma (tutti i corpi in sleep) oppure tutte le consegne fatte |
+| Fine livello | Solo quando i pacchi sono esauriti (decisione dell'utente) |
 
-### Punteggio proposto (da tarare)
-- **Camino**: 1000
-- **Finestra**: 300–700 in base a dimensione/altezza (finestra piccola alta > grande bassa)
-- **Porta**: 150
-- **Bonus ghiaccio**: +10 per lastra rotta, +50 per crollo completo di una struttura
-- **Bonus pacchi avanzati**: +500 ciascuno se tutte le case sono servite prima di finire i pacchi
-- **Stelle**: 1–3 in base alle soglie di punteggio (serve a dare rigiocabilità)
+### Punteggio (in vigore)
+- **Camino**: 1000 (vale anche toccarne lo spigolo interno)
+- **Finestra**: 400–700 per livello · **Porta**: 150–200
+- **Rotture**: +10 per pezzo di neve/ghiaccio rotto, +2 per cristallo staccato dall'albero
+- **Premio**: +1500 se tutte le case hanno ricevuto almeno un pacco
+- **Stelle**: 1–3 in base alle soglie del livello; miglior punteggio salvato sul dispositivo
 
 ---
 
@@ -107,50 +109,22 @@
 
 ## 6. Architettura del codice
 
-```
-xmas-26/
-├─ index.html
-├─ vite.config.js
-├─ public/            manifest PWA, icone, audio
-└─ src/
-   ├─ main.js         bootstrap, loop, resize, quality tier
-   ├─ core/
-   │  ├─ loop.js      timestep fisso + interpolazione
-   │  ├─ input.js     pointer events → azioni di gioco
-   │  └─ camera.js    zoom/pan/follow + tween dell'intro
-   ├─ physics/
-   │  ├─ world.js     wrapper Planck (scala, contatti, budget corpi)
-   │  ├─ fracture.js  pre-frattura e sostituzione lastre
-   │  └─ trajectory.js
-   ├─ entities/       gift, slingshot, sleigh, iceSlab, house
-   ├─ render/
-   │  ├─ background.js parallasse offscreen
-   │  ├─ draw/*.js     disegno procedurale per entità
-   │  └─ particles.js  neve, schegge, scintille
-   ├─ game/
-   │  ├─ state.js     macchina a stati (intro/aim/flight/settle/end)
-   │  ├─ scoring.js
-   │  └─ levels/*.json layout ostacoli e case
-   └─ ui/hud.js       pacchi rimasti, punteggio, overlay
-```
-
-- Build con **Vite**, JS moderno senza framework, output statico (hostabile ovunque).
-- Livelli in **JSON** (posizioni di lastre, case, aperture) → facili da modificare e da aggiungere.
-- Modalità debug (`?debug`) con wireframe fisico, FPS e conteggio corpi.
+Lo schema iniziale prevedeva più file (state.js, scoring.js, ui/hud.js, render/draw/*): nella realizzazione la logica di gioco è concentrata in `src/game/game.js`
+e il disegno in `src/render/sceneDraw.js`. **Struttura aggiornata e schema dei livelli JSON: [HANDOFF.md §5](HANDOFF.md).**
 
 ---
 
 ## 7. Roadmap
 
-| Fase | Contenuto | Verifica |
-|---|---|---|
-| **M0 — Prototipo fisico** | Planck, terreno, una pila di lastre, un pacco lanciabile, wireframe | Pila stabile per 60 s senza tocchi; FPS su smartphone reale |
-| **M1 — Meccanica** | Fionda + drag + traiettoria, slitta con 5 pacchi, camera follow | Lancio piacevole su touch e mouse |
-| **M2 — Rottura** | Pre-frattura, soglie d'impulso, pulizia frammenti | Crollo credibile, nessun calo sotto 50 fps |
-| **M3 — Case e punteggio** | Aperture, sensori, punteggio, fine livello | Ogni ingresso riconosciuto correttamente |
-| **M4 — Ambientazione** | Cielo, luna, stelle, parallasse, neve, case disegnate | Look finale |
-| **M5 — Regia e UX** | Intro camera, HUD, schermata finale con auguri, audio | Flusso completo |
-| **M6 — Rifinitura** | Tier qualità, PWA, test iOS/Android/desktop, livelli | Pronto da inviare |
+| Fase | Contenuto | Verifica | Stato |
+|---|---|---|---|
+| **M0 — Prototipo fisico** | Planck, terreno, una pila di lastre, un pacco lanciabile, wireframe | Pila stabile per 60 s senza tocchi; FPS su smartphone reale | ✅ |
+| **M1 — Meccanica** | Fionda + drag + traiettoria, slitta con 5 pacchi, camera follow | Lancio piacevole su touch e mouse | ✅ |
+| **M2 — Rottura** | Pre-frattura, soglie d'impulso, pulizia frammenti | Crollo credibile, nessun calo sotto 50 fps | ✅ |
+| **M3 — Case e punteggio** | Aperture, sensori, punteggio, fine livello | Ogni ingresso riconosciuto correttamente | ✅ (+ iterazioni su ostacoli e case) |
+| **M4 — Ambientazione** | Cielo, luna, stelle, parallasse, neve, case disegnate | Look finale | ❌ da fare |
+| **M5 — Regia e UX** | Intro camera, HUD, schermata finale con auguri, audio | Flusso completo | 🟡 intro e selettore livelli fatti |
+| **M6 — Rifinitura** | Tier qualità, PWA, test iOS/Android/desktop, livelli | Pronto da inviare | ❌ |
 
 ---
 
@@ -212,14 +186,55 @@ Il castello di ghiaccio non era giustificato in un villaggio di montagna: sostit
 - **Difficoltà del primo lancio** (546 tiri per pacco): porta 15–26, finestre 5–11, camino 2–9 — più difficile dei fortini (finestre 19–22) finché non si apre un varco: la scelta "sacrifico un lancio per aprire la strada" diventa centrale.
 - **Selettore dei livelli**: pulsante "Livelli" (tasto L) e pulsante nel pannello di fine livello; per ora "Il villaggio · albero" e "Il villaggio · fortini". Il livello scelto e il miglior punteggio (stelle) di ciascuno restano salvati sul dispositivo; `?level=<id>` apre direttamente un livello.
 
+### Livello "La collina · fortino ad arcate" (17/11/2026, desktop)
+- **Fortino ad arcate** (`snowFort.js`, `arches` nel JSON): 4 pilastri alti 4 file, 3 archi larghi 1.4 m fatti di 5 conci a cuneo ciascuno, riempimenti ai lati della chiave (blocchi composti da due triangoli, perché la forma è concava) e 3 file di mattoni sfalsati sopra, con merli. Stabile: svegliato senza urti si sposta al massimo di 1 cm.
+- **Pupazzi in cima**: `"merlon": n` mette un pupazzo sul merlo n-esimo (qui il 2° e il 4°).
+- **Case a quote diverse**: nuova **collina** (`hill.js`, altopiano con pendii); le case hanno `y` = quota del terreno. Casa A a terra dietro il fortino, casa B sulla collina a 3 m, con cappello di neve sul camino e punti più alti (porta 200, finestra 700).
+- **Crollo**: il pacco grande nel pilastro di sinistra fa cedere gli archi uno dopo l'altro; il muro sopra si accascia e i pupazzi rotolano (uno fino alla porta della casa A). Picco 110 corpi.
+- **Difficoltà del primo lancio** (546 tiri per pacco): casa A porta 17–21, finestra 2–4, camino 8–10; casa B porta 13–17, finestra 3–4, camino 1–2 (tappato dalla neve). Anteprima della traiettoria ridotta al 60%.
+
+### Vetri e regia d'apertura (17/11/2026)
+- **Vetri**: un pacco rompe sempre il vetro di porte e finestre, a qualunque velocità (anche rotolando); gli altri oggetti (zolle, schegge, palle di neve) solo oltre la soglia di 0.8 N·s.
+- **Regia d'apertura** (a ogni avvio, "Riprova" e cambio livello): un unico movimento continuo di 4.2 s lungo una curva (Bézier quadratica con controllo sulla panoramica) dalle case alla zona di lancio: parte lento sulle case con il nome del livello, si allarga verso la panoramica senza fermarsi (al massimo ~39 m di larghezza su 51 nel livello della collina) e rallenta arrivando sulla fionda. Un tocco la salta. Durata in `INTRO.duration`.
+
+### Solo fortini ad arcate (17/11/2026)
+Provati e scartati i fortini "a pilastrini e assi" e il muro a traforo: esteticamente poco convincenti. Tutti i fortini sono ora **ad arcate** (i vuoti li danno gli archi). Restano: merli che mancano a caso (25%, mai sotto un pupazzo) e le parti allungate di neve che si spezzano di traverso.
+- "Il villaggio · fortini": fortino basso a 2 arcate (pilastri di 3 file) con un pupazzo sul merlo centrale + torretta a 1 arcata alta (pilastri di 5 file).
+- "La collina": 3 arcate con 3 file di mattoni sopra e due pupazzi sui merli.
+
+### Spigolo interno del camino (17/11/2026)
+- Un pacco che **tocca il lato interno del camino** (le facce interne del condotto e lo spigolo interno della bocca, entro 7 cm, cioè metà del bordo) è consegnato come se fosse entrato. Il controllo avviene sia quando il contatto inizia sia mentre continua (un pacco che scivola dal bordo esterno verso l'interno conta quando arriva allo spigolo). Il bordo esterno e la faccia esterna fanno ancora rimbalzare.
+- Verificato facendo cadere il pacco piccolo sulla bocca: centro a 12 e 20 cm fuori dallo spigolo interno → consegnato dal camino; a 36 e 60 cm (bordo esterno) → rimbalza sul tetto.
+- La mira mostra più campo a destra: il bordo sinistro si ferma poco dietro la fionda e, tendendo l'elastico, la camera si allarga fino a +7 m.
+
+### Fortini misti neve + ghiaccio, cristalli, igloo (17/11/2026)
+- **Fortini misti**: base ad arcate di neve, una fila di mattoni, poi un piano del vecchio "castello di ghiaccio" (colonne e lastre, `ice.floors` nel JSON, colonne più basse: 1–1.1 m) e in cima un **grappolo di cristalli di ghiaccio** (`iceCrystal.js`): tre prismi solidi a base piatta con punta a matita, le punte laterali aperte verso l'esterno. Si frantumano in schegge come le lastre. I pupazzi possono stare sul muro di neve ai lati del piano di ghiaccio.
+- **Igloo** (`igloo.js`): cupola di 7 conci di neve appoggiata al terreno, vuota dentro; il concio in chiave ha la faccia superiore piana e regge un **pupazzo**, che diventa un ostacolo alto sulla traiettoria tra i due fortini.
+- **"Il villaggio · fortini e igloo"**: fortino a 2 arcate con piano di ghiaccio a 3 campate e cristalli; igloo con pupazzo; torretta a 1 arcata alta con due piani di ghiaccio stretti e cristalli; pupazzo a terra davanti alle case.
+- **"La collina"**: 3 arcate + piano di ghiaccio [3, 2] con cristalli in cima e i due pupazzi sul muro ai lati.
+- Stabili (svegliati senza urti: si assestano solo i riempimenti accanto agli archi, ~5 cm, nulla si rompe). Un pacco standard sul piano di ghiaccio del primo fortino: spazza il piano, frantuma i cristalli, fa cedere un arco e crollare l'igloo con il pupazzo. Picco 96 corpi.
+
+### Sculture di ghiaccio (17/11/2026)
+Al posto del "castello di carte" sopra i fortini, composizioni geometriche di ghiaccio (`iceSculpture.js`, `ice.sculpture` nel JSON), tutte di pezzi solidi che si frantumano; i prismi hanno una faccetta interna disegnata, come una gemma.
+- **piramide**: due grandi lastre appoggiate ad A (base piatta, faccia di contatto verticale in cima) con il grappolo di cristalli sotto la punta e due prismi triangolari agli angoli — fortino a 2 arcate del livello 2.
+- **torre**: prisma esagonale → lastra → prisma esagonale più piccolo → prisma triangolare — torretta del livello 2. Gli esagoni hanno facce piatte al 70% della larghezza: con facce più strette la lastra sopra faceva da altalena e la torre crollava da sola.
+- **ponte**: due prismi esagonali come pile, una lastra sopra con una tenda ad A e due triangoli, cristalli sotto il ponte — livello "La collina", con i pupazzi ai lati (`margin`).
+- **Rottura solo per urti veri**: in pre-solve si misura la velocità con cui i due corpi si vengono incontro; sotto 0.6 m/s niente si rompe. Prima, l'assestamento di una pila alta produceva picchi d'impulso che rompevano i mattoni di neve alla base senza alcun colpo.
+- Stabili in entrambi i livelli (al risveglio si assestano solo i riempimenti accanto agli archi, ≤ 7 cm). Il pacco grande sulla piramide la frantuma insieme ai cristalli.
+
+### Neve che cade a terra (17/11/2026)
+- Quando un pezzo di neve (mattone, zolla, palla, pupazzo) urta il terreno o una collina, la soglia di rottura scende al 20% (`SNOW.groundFactor`). Misurato con un mattone lasciato cadere: da 15 cm resta intero, da 25 cm in su si sbriciola sempre. Resta valida la velocità minima d'impatto (0.6 m/s): i mattoni appoggiati a terra non si rompono e i fortini svegliati senza urti restano intatti.
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente
+Piano iniziale (superato dalle iterazioni): 1 "Il villaggio", 2 "La collina", 3 "La tormenta". **Livelli attuali** (vedi HANDOFF §3):
 | Livello | Case | Ostacoli | Preview traiettoria |
 |---|---|---|---|
-| 1 — "Il villaggio" | 1 casa, camino largo | 1 castello di ghiaccio basso (2 piani) | Intera |
-| 2 — "La collina" | 2 case a quote diverse | 2 strutture, una alta 3 piani | 60% |
-| 3 — "La tormenta" | 3 case, finestre piccole | Muro di ghiaccio alto 4 piani + struttura sul tetto | 40% |
+| Il villaggio · albero | 2 case a terra (neve su camino e porta) | albero di cristalli, pupazzo | intera |
+| Il villaggio · fortini e igloo | 2 case a terra | fortino a 2 arcate + piramide di ghiaccio, igloo con pupazzo, torretta + torre di prismi, pupazzo | intera |
+| La collina | casa a terra + casa su collina a 3 m | fortino a 3 arcate + ponte di ghiaccio, 2 pupazzi | 60% |
+| La tormenta (da fare) | — | proposta: seggiovia oscillante + vento | 40% |
 
 5 pacchi per livello; stelle e punteggio per livello, totale finale.
 

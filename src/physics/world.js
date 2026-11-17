@@ -16,12 +16,20 @@ export class PhysicsWorld {
     this.world = new World({ gravity: new Vec2(0, GRAVITY) });
     /** @type {Map<import('planck').Body, {x:number,y:number,a:number}>} */
     this.prev = new Map();
-    /** Callback (body, impulse, otherBody) per ogni contatto risolto. */
+    /** Callback (body, impulse, otherBody, approachSpeed) per ogni contatto risolto. */
     this.onImpulse = null;
     /** Callback (contact) prima della risoluzione: può disabilitare il contatto (vetri che si infrangono). */
     this.onPreSolve = null;
 
-    this.world.on('pre-solve', (contact) => this.onPreSolve?.(contact));
+    // Prima della risoluzione si misura la velocità d'avvicinamento dei due corpi nel punto di contatto:
+    // serve a distinguere un urto vero da un corpo che semplicemente poggia su un altro.
+    this.world.on('pre-solve', (contact) => {
+      contact.approachSpeed = approachSpeed(contact);
+      this.onPreSolve?.(contact);
+    });
+    /** Callback (contact) quando due corpi iniziano a toccarsi. */
+    this.onBeginContact = null;
+    this.world.on('begin-contact', (contact) => this.onBeginContact?.(contact));
 
     this.world.on('post-solve', (contact, impulse) => {
       if (!this.onImpulse) return;
@@ -31,8 +39,9 @@ export class PhysicsWorld {
       if (max <= 0) return;
       const a = contact.getFixtureA().getBody();
       const b = contact.getFixtureB().getBody();
-      this.onImpulse(a, max, b);
-      this.onImpulse(b, max, a);
+      const v = contact.approachSpeed ?? 0;
+      this.onImpulse(a, max, b, v);
+      this.onImpulse(b, max, a, v);
     });
 
     this.ground = this.world.createBody({ type: 'static' });
@@ -76,4 +85,22 @@ export class PhysicsWorld {
     }
     return { dynamic, awake };
   }
+}
+
+/** Velocità relativa (m/s) con cui i due corpi si vengono incontro lungo la normale del contatto. */
+function approachSpeed(contact) {
+  const wm = contact.getWorldManifold(null);
+  const n = contact.getManifold().pointCount;
+  if (!wm || !n) return 0;
+  const A = contact.getFixtureA().getBody();
+  const B = contact.getFixtureB().getBody();
+  let best = 0;
+  for (let i = 0; i < n; i++) {
+    const p = wm.points[i];
+    const va = A.getLinearVelocityFromWorldPoint(p);
+    const vb = B.getLinearVelocityFromWorldPoint(p);
+    const vn = (vb.x - va.x) * wm.normal.x + (vb.y - va.y) * wm.normal.y;
+    best = Math.max(best, Math.abs(vn));
+  }
+  return best;
 }

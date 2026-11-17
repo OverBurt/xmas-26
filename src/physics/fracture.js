@@ -40,6 +40,23 @@ export function prefracture(poly, level) {
 export function snowPieces(poly, level) {
   const a = Math.abs(area(poly));
   if (level >= 2 || a < 0.08) return null;
+
+  // Assi di neve (pezzi lunghi e sottili): si spezzano di traverso, in tronconi irregolari
+  const { ax, ay, min, L } = mainAxis(poly);
+  if (L * L > 4 * a) {
+    const n = Math.max(2, Math.min(level === 0 ? 5 : 2, Math.round(L / 0.6)));
+    const c0 = centroid(poly);
+    const cAxis = c0.x * ax + c0.y * ay;
+    let pieces = [poly];
+    for (let i = 1; i < n; i++) {
+      const s = min + L * (i / n + rand(-0.15, 0.15) / n);
+      const p = { x: c0.x + ax * (s - cAxis), y: c0.y + ay * (s - cAxis) };
+      pieces = cutAll(pieces, p, rotate({ x: ax, y: ay }, rand(-0.5, 0.5)));
+    }
+    pieces = pieces.map(lumpify);
+    return pieces.length >= 2 ? pieces : null;
+  }
+
   const c = centroid(poly);
   const size = Math.sqrt(a);
   const cuts = level === 0 ? 2 : 1;
@@ -151,6 +168,31 @@ export function createIceBody(pw, poly, x, y, angle, level, awake = true, materi
   return body;
 }
 
+/**
+ * Blocco di neve composto da più poligoni convessi (es. il riempimento sopra un arco, che è concavo).
+ * Quando si rompe, ogni poligono diventa una zolla a sé.
+ */
+export function createSnowCompound(pw, polys, x, y, angle = 0, awake = false) {
+  const body = pw.world.createBody({ type: 'dynamic', position: new Vec2(x, y), angle, awake });
+  for (const poly of polys) {
+    body.createFixture({
+      shape: new Polygon(poly.map((v) => new Vec2(v.x, v.y))),
+      density: SNOW.density,
+      friction: SNOW.friction,
+      restitution: SNOW.restitution,
+    });
+  }
+  body.setUserData({
+    kind: 'snow',
+    level: 0,
+    area: polys.reduce((a, p) => a + Math.abs(area(p)), 0),
+    pieces: polys,
+    flash: 0,
+    life: undefined,
+  });
+  return body;
+}
+
 /** Palla di neve (dal pupazzo): rotola, e con un colpo deciso si sbriciola. */
 export function createSnowball(pw, r, x, y, angle, role) {
   const body = pw.world.createBody({ type: 'dynamic', position: new Vec2(x, y), angle });
@@ -186,14 +228,21 @@ export class Fracture {
   }
 
   /** Chiamata da post-solve. `other` è l'altro corpo del contatto. */
-  hit(body, impulse, other) {
+  hit(body, impulse, other, speed = Infinity) {
     const ud = body.getUserData();
     if (!ud || ud.dead) return;
+    // Corpi che poggiano l'uno sull'altro (assestamento di una pila alta) non si rompono:
+    // serve un urto vero, con i due corpi che si vengono incontro abbastanza in fretta.
+    if (speed < FRACTURE.minImpactSpeed) return;
     const o = other.getUserData();
     // I pacchi hanno un moltiplicatore di danno (il piccolo quasi non rompe, il grande sfonda).
     const k = o && o.kind === 'gift' ? GIFTS[o.type].damage : 1;
     const eff = impulse * k;
-    if (eff <= this.threshold(ud)) return;
+    let threshold = this.threshold(ud);
+    // La neve che cade a terra (o su una collina) si sbriciola molto più facilmente
+    const snowy = ud.kind === 'snow' || ud.kind === 'snowman';
+    if (snowy && (o?.kind === 'ground' || o?.kind === 'hill')) threshold *= SNOW.groundFactor;
+    if (eff <= threshold) return;
     const prev = this.queue.get(body);
     if (!prev || eff > prev.eff) this.queue.set(body, { eff, by: o?.kind === 'gift' ? other : prev?.by });
   }

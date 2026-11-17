@@ -19,6 +19,7 @@ import { createIceBody } from '../physics/fracture.js';
  *  { x, w, h, roof, lean,
  *    door: {h, points}, windows: [{y, h, points}],
  *    chimney: {pos, bottom, top, h, tilt, points},
+ *    y: quota del terreno (default 0),
  *    snowCap: bool (cappello di neve sul camino), doorDrift: bool (cumulo davanti alla porta) }
  *  chimney.pos: posizione lungo la falda sinistra (0 = gronda, 1 = colmo)
  *  chimney.bottom/top: larghezza interna alla base e in cima; tilt: gradi verso sinistra
@@ -40,7 +41,7 @@ function snowPlug(pw, poly, x, y, angle) {
 
 export function buildHouse(pw, def) {
   const { x, w, h, roof, lean = 0, door, windows = [], chimney } = def;
-  const g = GROUND_Y;
+  const g = GROUND_Y + (def.y || 0); // quota del terreno sotto la casa (case su una collina)
   const body = pw.world.createBody({ type: 'static' });
   const fx = { friction: 0.6, restitution: 0.2 };
   const poly = (pts) => body.createFixture({ shape: new Polygon(pts.map((p) => new Vec2(p.x, p.y))), ...fx });
@@ -110,15 +111,27 @@ export function buildHouse(pw, def) {
     const below = -1.0; // le pareti affondano nel tetto
     const wallL = [T(-bw - CHIMNEY_WALL, below), T(-bw, below), T(-tw, H), T(-tw - CHIMNEY_WALL, H)];
     const wallR = [T(bw, below), T(bw + CHIMNEY_WALL, below), T(tw + CHIMNEY_WALL, H), T(tw, H)];
-    poly(wallL);
-    poly(wallR);
+    // Le pareti del camino sono marcate: un pacco che ne tocca il lato interno è consegnato
+    poly(wallL).setUserData({ part: 'chimney' });
+    poly(wallR).setUserData({ part: 'chimney' });
     zones.push({
       type: 'chimney',
       points: chimney.points,
       poly: [T(-bw, below), T(bw, below), T(tw, H - 0.25), T(-tw, H - 0.25)],
       glow: 0,
     });
-    chimneyGeom = { wallL, wallR, mouth: [T(-tw, H), T(tw, H)], top: T(0, H), angle: a };
+    chimneyGeom = {
+      wallL,
+      wallR,
+      mouth: [T(-tw, H), T(tw, H)],
+      top: T(0, H),
+      angle: a,
+      // facce interne del condotto (dalla falda alla bocca): toccarle, spigolo compreso, vale la consegna
+      inner: [
+        [T(-bw, below), T(-tw, H)],
+        [T(bw, below), T(tw, H)],
+      ],
+    };
 
     // Cappello di neve che tappa il camino: va fatto cadere o sbriciolato prima di poterci entrare
     if (def.snowCap) {

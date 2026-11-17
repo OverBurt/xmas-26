@@ -20,13 +20,15 @@ function createSlab(pw, cx, cy, hw, hh, angle = 0) {
  * coperte da un'unica lastra orizzontale; ogni piano superiore ha una campata in meno.
  * @param {number} x0 centro della prima colonna in basso a sinistra
  * @param {number[]} baysPerFloor es. [3, 2, 1]
+ * @param {object} [o] { baseY: quota d'appoggio, colH: altezza colonne, bay: passo tra le colonne }
+ * @returns {object[]} le lastre; `.top` = quota sopra l'ultima lastra, `.x0/.x1` = estensione dell'ultimo piano
  */
-export function buildIceTower(pw, x0, baysPerFloor) {
+export function buildIceTower(pw, x0, baysPerFloor, o = {}) {
   const t = ICE.thickness;
-  const h = ICE.columnHeight;
-  const bay = ICE.bay;
+  const h = o.colH ?? ICE.columnHeight;
+  const bay = o.bay ?? ICE.bay;
   const slabs = [];
-  let baseY = GROUND_Y;
+  let baseY = o.baseY ?? GROUND_Y;
   let left = x0;
   let prevBays = baysPerFloor[0];
 
@@ -45,6 +47,9 @@ export function buildIceTower(pw, x0, baysPerFloor) {
     slabs.push(createSlab(pw, cx, cy, span / 2, t / 2));
 
     baseY = cy + t / 2;
+    slabs.x0 = left - t / 2;
+    slabs.x1 = left + bays * bay + t / 2;
   }
+  slabs.top = baseY;
   return slabs;
 }
