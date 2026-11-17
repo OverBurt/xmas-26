@@ -225,6 +225,75 @@ Al posto del "castello di carte" sopra i fortini, composizioni geometriche di gh
 ### Neve che cade a terra (17/11/2026)
 - Quando un pezzo di neve (mattone, zolla, palla, pupazzo) urta il terreno o una collina, la soglia di rottura scende al 20% (`SNOW.groundFactor`). Misurato con un mattone lasciato cadere: da 15 cm resta intero, da 25 cm in su si sbriciola sempre. Resta valida la velocità minima d'impatto (0.6 m/s): i mattoni appoggiati a terra non si rompono e i fortini svegliati senza urti restano intatti.
 
+### Albero sinuoso, cristalli di sette forme, fortini verticali (17/11/2026, solo desktop/Node)
+- **Albero**: tronco sinuoso (onda che parte da zero alla base, piede svasato, rastremato) e rami curvi con ondulazione, disegnati come nastri rastremati (`render/treeDraw.js`). Il corpo statico del tronco segue la curva (16 quadrilateri). Parametri in `TREE.trunkSway/branchBend/branchWiggle`.
+- **Cristalli di sette forme** (`TREE.shapes`): fiocco, stellina, gemma, piastrina esagonale ai lati dei rami; goccia e stalattite appese sotto; cuscinetto di neve appoggiato sopra. Gocce e stalattiti cadono dritte e più veloci (`TREE.heavyFall`), le altre ondeggiano. Collisioni invariate (punto + raggio). ~137 cristalli, 34 rami.
+- **Fortini verticali** (richiesta: obbligare al lancio a parabola): `storeys` nel JSON impila piani ad arcate. Costruzione "da torre vera":
+  - pilastri più larghi in basso e archi più stretti in alto (`pierW`, `archW` per piano), ogni piano centrato → sagoma rastremata; sopra i pilastri larghi un blocchetto chiude lo spazio tra i riempimenti;
+  - densità per piano `SNOW.storeyDensity` [1.5, 1.0, 0.7]: neve compattata in basso, fresca in cima; la soglia di rottura scala con la densità, i frammenti la ereditano;
+  - tra un piano e l'altro l'ultima fila è un **solaio** intero: senza, la torre a 3 piani crollava da sola (le spinte dell'arco superiore facevano scivolare i mattoni sotto i pilastri). Con 20 iterazioni del solver reggeva lo stesso, ma costa 2.5× sul telefono.
+- Stabilità (svegliati senza urti, 5 prove): fortini 6.2 cm, collina 7.3 cm, 0 rotture, tutto torna a dormire. Torre di neve della collina da sola: 3.7 cm. Il ponte di ghiaccio della collina ha bisogno di ≥ 3 m di spazio (`margin` 0.9), altrimenti scivola.
+- Livelli: "fortini" = torre a 2 piani (6.4 m con la piramide) + igloo + torre a 3 piani (9.4 m con la torre di prismi); "collina" = 2 arcate × 3 piani con ponte e pupazzi (9.7 m).
+- **Tiri tesi** (angolo < 35°) che consegnano, 3 pacchi × 546 tiri, senza neve sulle aperture: fortini 109 → 6, collina 74 → 0. Le finestre della casa A, ora coperte dalla torre, sono diventate molto difficili (fortini 83 → 9, collina 35 → 4).
+
+- **Verifica in Chrome** (desktop, estensione Claude in Chrome): albero a 59 FPS; la cima del tronco si assottiglia e finisce arrotondata come un ramo (prima sporgeva un moncone tagliato). Pacco grande teso contro i fortini: spazza piramide e piano alto della prima torre e l'igloo, la torre a 3 piani resta in piedi e il pacco si ferma davanti. Durante il crollo **130 corpi** (tetto `FRACTURE.maxBodies` raggiunto), media 87 FPS ma **un frame da 82 ms**: da alleggerire prima del test sul telefono. Collina: un lancio standard a 47° sfiora la cima della torre e consegna dal camino della casa A.
+
+### Misura del punteggio (17/11/2026)
+Griglia completa senza neve sulle aperture (somma dei 3 pacchi): il camino (1000) ha 53–88 tiri validi, le finestre (400–700) 18–81, le finestre delle case B sono il bersaglio più difficile. Restringere la bocca del camino a 1.15 m toglie solo ~25%, togliere lo spigolo interno ~30–45%. L'utente ha chiesto di ribilanciare: scelta del metodo in sospeso. Confermato: una casa può ricevere più pacchi (ognuno conta).
+
+### Fortini in meno pezzi, punteggio per difficoltà, mira (17/11/2026)
+- **Fortini semplificati** (`arcadeStorey`): pilastro = un blocco unico per piano; arco = 3 corpi (due "spalle" composte da 2 conci + riempimento + blocchetto sopra il pilastro, e la chiave); file sopra gli archi con mattoni lunghi 1.4 m (`SNOW.longBrick`). Corpi dinamici: fortini 103 → 52, collina 96 → 45. Stabilità migliorata: 1.5 cm e 3.6 cm, 0 rotture.
+- Stesso tiro di prova in Chrome (pacco grande teso nel livello fortini): picco 130 → **101 corpi**, frame peggiore 82 → **9 ms**, 30 pezzi rotti; la torre alta resta in piedi.
+- **Punteggio per difficoltà** (richiesta dell'utente; formula in `config.js`, valori nei JSON). Tiri validi (3 pacchi × 546, senza neve) → punti:
+
+| Livello | Casa | Porta (tiri → punti) | Finestra | Camino |
+|---|---|---|---|---|
+| albero | A | 130 → 150 | 53 → 1050 | 76 → 900 |
+| albero | B | 63 → 200 | 19 → 1500 | 58 → 1000 |
+| fortini | A | 37 → 250 | 11 → 1500 | 75 → 900 |
+| fortini | B | 59 → 200 | 19 → 1500 | 49 → 1100 |
+| collina | A | 61 → 200 | 4 → 1500 | 52 → 1050 |
+| collina | B | 53 → 200 | 7 → 1500 | 33 (5 col cappello di neve) → 1350 |
+
+  Finestra = 1000·√(60/tiri) tra 500 e 1500; camino = 1000·√(60/tiri) tra 800 e 1500 (anche il camino segue la difficoltà, su richiesta dell'utente); porta = 200·√(60/tiri) tra 150 e 400. Misure senza neve sulle aperture: la neve (cappello sul camino, cumulo alla porta) non è ancora considerata nei punti. Soglie delle stelle alzate di conseguenza (villaggi 1800/3500/5500, collina 2000/4000/6000): **provvisorie**, da tarare giocando.
+- **Anteprima della traiettoria** più lunga: 1.5 → 2 s (`TRAJECTORY.steps` 120; i livelli ne mostrano la frazione `preview`).
+- **Zoom-out durante la tensione** 7 → 12 m (`CAMERA.pullZoomOut`): a tensione massima la vista è 36 × 17 m e comprende torri e case.
+
+### Review di Fable e livello unico "Il villaggio" (18/11/2026)
+Review complessiva (Fable) con misure: motore solido, problemi di design (mira troppo sensibile, anteprima inutile al pallonetto, sacrificio incoerente, punteggi incoerenti). Decisioni dell'utente e cosa è stato fatto:
+- **Un solo livello** per ora, `il-villaggio`: 1 forte, 1 albero, casa A a terra (cumulo alla porta) e casa B sulla collina a 3 m (cappello sul camino). I vecchi JSON restano in `levels/` ma non sono nell'elenco (usano chiavi superate, es. `merlon`).
+- **Forte a strati di pezzi lunghi e cavi** (`layers` in `snowFort.js`, richiesta dell'utente): portale cavo a 2 campate (pilastri e arco in un pezzo), trave lunga, blocco con **oblò** passante (un pacco preciso lo attraversa: terza via oltre a pallonetto e demolizione), trave, torre di ghiaccio e due pupazzi sugli spalti. I pezzi cavi sono composti da strisce convesse. **13 corpi** in tutto il livello; stabilità 0.5 cm, 0 rotture.
+- **Sacrificio come vera alternativa**: tiri standard validi dopo un pacco grande sul forte ×1.5–2.9 (prima ×1.0–1.2 nei fortini); base del forte più densa (`dens` 1.8) per non renderlo dominante.
+- **Mira**: corsa del dito 1.75× più lunga (`SLING.strokePx` 190 px logici) e risposta dolce (`SLING.soft` 0.5: vicino al massimo la tensione cresce a metà velocità) → sensibilità vicino al massimo ~3.5× più fine (calcolata: camino A da ~2 a ~7 px CSS sull'S21; non ancora provata con un dito vero).
+- **Mira provata sull'S21 con tocchi veri** (adb, gesto unico slitta → fionda → mira): corsa piena 342 px fisici (~124 px CSS); verso il camino A il tiro consegna con il dito spostato da 0 a +16 px fisici lungo la direzione di tensione (a −8 entra dalla porta, a +24 dalla finestra della casa B, a −16 e −24 manca): finestra utile ~16–24 px fisici ≈ 6–9 px CSS (prima ~2). 60 FPS, fisica ~1.2 ms.
+- **Anteprima di tutto l'arco** fino al terreno o al bordo del livello (`TRAJECTORY.steps` 330).
+- **Punteggio solo per difficoltà misurata, neve compresa**: `tools/sim/score.mjs` misura i tiri validi (3 pacchi × 546, 2 semi, con la neve) e scrive i punti con `1000·(60/tiri)^0.75` (50–3000). Il Villaggio: A porta 31.5 → 1600, A finestra 21.5 → 2150, A camino 81.5 → 800, B porta 47.5 → 1200, B finestra 13.5 → 3000, B camino (tappato) 6.5 → 3000.
+- **Valore che cala** a ogni consegna nella stessa apertura (`SCORE.repeat` 0.6; verificato: 3000 → 1800 → prossima 1080, etichetta aggiornata).
+- **Rotture in base alla superficie** (`SCORE.perArea` 15 punti/m²).
+- **Stelle**: 1ª = due consegne meno pagate (2000); 2ª/3ª da `tools/sim/play.mjs` (mediana e 90° percentile del giocatore medio): 2000/4900/7800. Giocatore medio: 88% almeno una stella, 10% tre stelle.
+- Pacco grande nel camino: resta ammesso. Codice morto eliminato (`iceTower.js`, fortino a muro, merli).
+- Tecnica: generatore casuale con seme (`src/core/rng.js`) per misure riproducibili; turno e riepilogo aspettano che i pacchi siano fermi; tetto dei corpi rigido (`continue`); script di misura in `tools/sim/` (`npm test` = stabilità, `npm run sim:grid|sim:score|sim:play`).
+
+### Ritorno ai fortini ad arcate, nuova disposizione con i pini (18/11/2026)
+- L'utente ha scartato il forte a strati (troppo pesante): eliminato il codice, torna il fortino ad arcate a pochi pezzi (2 arcate × 2 piani, rastremato, ponte di ghiaccio, pupazzi sugli spalti). Stabilità 3.5 cm, 0 rotture, 37 corpi (`npm test`, soglia portata a 4 cm).
+- Disposizione da sinistra: pino, slitta, fionda, **albero di cristalli subito dopo la fionda**, fortino verso le case, casa A a terra (cumulo alla porta), **pino tra le case**, casa B sulla collina (cappello sul camino), **tre pini** dopo l'ultima casa. Pini: nuovo `pine.js` (corpo statico: tronco + tre piani triangolari, neve disegnata sui rami; costanti `PINE`), tutti uguali (uno più basso).
+- Misure: tiri tesi validi 0 (il tronco dell'albero ferma i lanci bassi). Sacrificio: il grande teso si ferma sull'albero; con un pallonetto basso (0.6 rad, 2.0 m) i tiri validi dopo salgono ×2.35.
+- Punti rigenerati: A porta 11.5 → 3000, A finestra 6 → 3000, A camino 66.5 → 950, B porta 40.5 → 1350, B finestra 8.5 → 3000, B camino 7 → 3000. Stelle 2300/3100/6900.
+- **Livello molto difficile**: giocatore simulato medio 1.6 consegne su 5, 39% senza stelle; quattro aperture al tetto dei 3000. L'utente ha deciso di lasciarlo così e di tarare i punteggi in seguito.
+
+### Prova: castello di carte di ghiaccio e neve (18/11/2026)
+Su richiesta dell'utente (foto di un castello di carte), solo per provare l'elemento, livello `prova-carte` (copia del villaggio con il castello al posto del fortino; non calibrato). `cardCastle.js`: piani di tende ad A di lastre di ghiaccio, ogni piano una tenda in meno, separati da blocchi di neve orizzontali appoggiati sulle punte.
+- Prima versione instabile: il blocco in cima, appoggiato sulla punta di una sola tenda, scivolava via (equilibrio su uno spigolo) e trascinava tutto. Soluzione: ogni lastra finisce con una **cima piatta** di 12 cm (`cap`), il blocco poggia di piatto. Stabilità: 0–0.6 cm fino a 4 piani, 0 rotture (3 piani: 17 corpi).
+- In Chrome: pallonetto del pacco grande → fa cadere solo il blocco in cima e consegna dalla finestra A; colpo teso a metà altezza (0.5 rad) → crolla il piano alto e si spezza il blocco di mezzo, 12 pezzi rotti, picco 35 corpi, frame peggiore 10 ms.
+
+- **Fortino con castello di carte in cima** (proposta dell'utente): base di neve ad arcate, 1 arcata × 2 piani (arcate 1.6/1.5 m, pilastri 1.0/0.9 m), e sopra il castello di carte (`cards` nel fortino: 3 piani di tende piccole, mezza base 0.5 m, alte 1.2 m). Alto 9.3 m, 30 corpi, stabilità 1.1 cm, 0 rotture. In Chrome: pacco grande a 0.6 rad → il castello si affloscia in cima e la base resta in piedi (15 rotti, picco 73 corpi, frame peggiore 9 ms); a 0.5 rad → il colpo spazza via il castello e il piano alto delle arcate, le lastre volano verso la casa A (18 rotti, picco 62 corpi, 9 ms). Livello `prova-carte`.
+
+### Neve più fragile, rotture distribuite sugli step (18/11/2026)
+- Richiesta dell'utente: i blocchi di neve si devono frantumare più facilmente. `SNOW.breakImpulse` 0.7 → 0.4, `levelFactor` 1.3 → 1.15, `groundFactor` 0.2 → 0.15. Le strutture svegliate senza urti restano intatte (`npm test`: 0 rotture in entrambi i livelli).
+- Effetto (fortino con castello di carte, Chrome): pacco grande a 0.5 rad 18 → 56 pezzi rotti, a 0.6 rad 15 → 27; il fortino si sbriciola invece di restare in blocchi.
+- Il primo test ha mostrato uno scatto di 75 ms (decine di rotture nello stesso step). Ora al massimo `FRACTURE.maxPerStep` = 6 rotture per step, le altre restano in coda per gli step seguenti: frame peggiore 9–17 ms, 0 frame oltre 20 ms, picco 65–67 corpi.
+- I punti del villaggio non sono stati rigenerati (la taratura è rimandata).
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente

@@ -1,47 +1,57 @@
-import { Box, Vec2 } from 'planck';
+import { Polygon, Vec2 } from 'planck';
 import { GROUND_Y, GIFTS, TREE } from '../config.js';
+import { random } from '../core/rng.js';
 
-const rand = (a, b) => a + Math.random() * (b - a);
+const rand = (a, b) => a + random() * (b - a);
+const sign = () => (random() < 0.5 ? -1 : 1);
 
 /**
- * Albero alto con una chioma di cristalli di neve al posto delle foglie.
+ * Albero alto con una chioma di cristalli di ghiaccio e neve al posto delle foglie.
  *
- * - Il tronco è un corpo statico (il pacco ci rimbalza).
+ * - Il tronco è sinuoso (curva con ondulazione) e rastremato; il corpo statico ne segue la forma
+ *   con un quadrilatero per tratto, così il pacco rimbalza sul tronco vero.
+ * - I rami sono curve morbide (arco + ondulazione), rastremate dalla base alla punta (solo grafica).
  * - I cristalli NON sono corpi fisici: sono punti fissi controllati a mano a ogni step
  *   (centinaia di cristalli costano quasi nulla). Quando un pacco ci passa attraverso,
- *   il cristallo si stacca e cade ondeggiando come una foglia, poi svanisce;
- *   ogni cristallo attraversato frena un po' il pacco (meno se il pacco è pesante).
+ *   il cristallo si stacca e cade (fiocchi e neve ondeggiando come foglie, gocce e stalattiti dritte),
+ *   poi svanisce; ogni cristallo attraversato frena un po' il pacco (meno se il pacco è pesante).
  *   Il varco aperto resta libero per il lancio successivo.
+ * - Forme dei cristalli: fiocco, stella, gemma, esagono (ai lati dei rami), goccia e stalattite
+ *   (appese sotto), neve (cuscinetto appoggiato sopra). Frequenze in `TREE.shapes`.
  *
  * Definizione (JSON del livello):
- *  { x, trunkH, trunkW, crown: [{dx, dy, r}], spacing }
+ *  { x, trunkH, trunkW, crown: [{dx, dy, r}], spacing, sway }
  *  crown: cerchi (relativi alla cima del tronco) la cui unione forma la chioma
+ *  sway: sinuosità del tronco (m), default TREE.trunkSway
  */
 export class SnowTree {
   constructor(pw, def) {
     this.def = def;
     const { x, trunkH, trunkW = 0.7 } = def;
+    // Il tronco prosegue 1.5 m dentro la chioma
+    this.trunk = buildTrunk(x, GROUND_Y, trunkH + 1.5, trunkW, def.sway ?? TREE.trunkSway);
     this.base = { x, y: GROUND_Y };
-    this.top = { x, y: GROUND_Y + trunkH };
+    this.top = at(this.trunk, trunkH / (trunkH + 1.5));
 
-    // Tronco: rastremato verso l'alto, prosegue un po' dentro la chioma
     const body = pw.world.createBody({ type: 'static' });
-    body.createFixture({ shape: new Box(trunkW / 2, (trunkH + 1.5) / 2, new Vec2(x, GROUND_Y + (trunkH + 1.5) / 2)), friction: 0.6 });
+    for (let i = 0; i < this.trunk.pts.length - 1; i++) {
+      const a = side(this.trunk, i);
+      const b = side(this.trunk, i + 1);
+      const quad = [a.l, a.r, b.r, b.l].map((p) => new Vec2(p.x, p.y));
+      body.createFixture({ shape: new Polygon(quad), friction: 0.6 });
+    }
     body.setUserData({ kind: 'tree' });
     this.body = body;
 
-    // Rami (solo grafica): un ramo principale verso ogni lobo della chioma,
-    // con 2–3 rametti laterali e qualche ramoscello in punta
     const circles = def.crown.map((c) => ({ x: x + c.dx, y: this.top.y + c.dy, r: c.r }));
     this.circles = circles;
-    this.branches = buildBranches(x, this.top.y, circles);
+    this.branches = buildBranches(this.trunk, x, this.top.y, circles);
 
-    // Cristalli attaccati ai rami: lungo i rametti, alternati ai due lati, e a grappolo in punta
     this.crystals = growCrystals(this.branches, def.spacing ?? TREE.spacing);
     const xs = this.crystals.map((c) => c.x);
     const ys = this.crystals.map((c) => c.y);
     this.bounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
-    this.falling = []; // cristalli staccati che cadono come foglie
+    this.falling = []; // cristalli staccati che cadono
     this.knocked = 0;
   }
 
@@ -79,17 +89,16 @@ export class SnowTree {
         c.alive = false;
         hits++;
         const v = g.getLinearVelocity();
+        const heavy = c.shape === 'goccia' || c.shape === 'stalattite';
         this.falling.push({
-          x: c.x,
-          y: c.y,
-          size: c.size,
-          rot: c.rot,
-          // spinta iniziale nella direzione del pacco, poi caduta lenta ondeggiante
+          ...c,
+          // spinta iniziale nella direzione del pacco, poi caduta lenta ondeggiante (o dritta se pesante)
           vx: v.x * TREE.push * rand(0.5, 1),
           vy: v.y * TREE.push * rand(0.5, 1) + rand(0, 0.6),
-          spin: rand(-3, 3),
+          spin: heavy ? rand(-1, 1) : rand(-3, 3),
           phase: rand(0, Math.PI * 2),
-          sway: rand(0.5, 1.1),
+          sway: heavy ? rand(0.05, 0.15) : rand(0.5, 1.1),
+          fall: heavy ? TREE.fallSpeed * TREE.heavyFall : TREE.fallSpeed,
           life: rand(TREE.fallLife * 0.7, TREE.fallLife * 1.2),
         });
       }
@@ -103,7 +112,7 @@ export class SnowTree {
     }
   }
 
-  /** Cristalli che cadono come foglie (tempo reale). */
+  /** Cristalli che cadono (tempo reale). */
   update(dt) {
     const f = this.falling;
     let j = 0;
@@ -111,101 +120,217 @@ export class SnowTree {
       const c = f[i];
       c.life -= dt;
       if (c.life <= 0 || c.y < GROUND_Y - 0.2) continue;
-      // attrito dell'aria forte: la velocità tende a una caduta lenta, con ondeggiamento laterale
+      // attrito dell'aria forte: la velocità tende alla caduta lenta, con ondeggiamento laterale
       const k = Math.min(1, TREE.airDrag * dt);
       c.vx += (0 - c.vx) * k;
-      c.vy += (-TREE.fallSpeed - c.vy) * k;
+      c.vy += (-c.fall - c.vy) * k;
       c.phase += dt * 3;
       c.x += (c.vx + Math.sin(c.phase) * c.sway) * dt;
       c.y += c.vy * dt;
-      c.rot += (c.spin + Math.cos(c.phase) * 1.5) * dt;
+      c.rot += (c.spin + Math.cos(c.phase) * 1.5 * c.sway) * dt;
       f[j++] = c;
     }
     f.length = j;
   }
 }
 
-/**
- * Cristalli lungo i rami. Sul ramo principale solo verso la punta, sui rametti e ramoscelli
- * per tutta la lunghezza, a passo irregolare e alternati sui due lati; in punta un grappolo.
- */
-function growCrystals(branches, step) {
-  const out = [];
-  const crystal = (x, y, big = false) =>
-    out.push({ x, y, size: big ? rand(0.16, 0.22) : rand(0.11, 0.17), rot: rand(0, Math.PI / 3), alive: true });
+// ------------------------------------------------------------------ geometria delle curve
 
-  for (const b of branches) {
-    const len = Math.hypot(b.x1 - b.x0, b.y1 - b.y0);
-    const from = b.level === 0 ? 0.6 : 0.25;
-    let t = from + rand(0, 0.1);
-    let side = Math.random() < 0.5 ? 1 : -1;
-    while (t < 0.95) {
-      const p = quad(b, t);
-      const q = quad(b, Math.min(1, t + 0.02));
-      const dl = Math.hypot(q.x - p.x, q.y - p.y) || 1;
-      const nx = -(q.y - p.y) / dl;
-      const ny = (q.x - p.x) / dl;
-      const off = rand(0.1, 0.22) * side;
-      crystal(p.x + nx * off, p.y + ny * off);
-      side = -side;
-      t += (step * rand(0.6, 1.3)) / len;
-    }
-    // Grappolo in punta (più ricco sui ramoscelli)
-    const tip = quad(b, 1);
-    const n = b.level === 2 ? 3 : b.level === 1 ? 2 : 1;
-    for (let i = 0; i < n; i++) {
-      const a = rand(0, Math.PI * 2);
-      const r = i === 0 ? rand(0, 0.06) : rand(0.16, 0.26);
-      crystal(tip.x + Math.cos(a) * r, tip.y + Math.sin(a) * r, i === 0);
+/**
+ * Curva rastremata: `pts` punti della linea mediana, `ws` larghezze.
+ * I punti sono a passo uniforme, quindi il parametro t ∈ [0,1] si mappa sull'indice.
+ */
+function at(curve, t) {
+  const { pts } = curve;
+  const f = Math.min(Math.max(t, 0), 1) * (pts.length - 1);
+  const i = Math.min(Math.floor(f), pts.length - 2);
+  const u = f - i;
+  return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * u, y: pts[i].y + (pts[i + 1].y - pts[i].y) * u };
+}
+
+function widthAt(curve, t) {
+  const { ws } = curve;
+  const f = Math.min(Math.max(t, 0), 1) * (ws.length - 1);
+  const i = Math.min(Math.floor(f), ws.length - 2);
+  return ws[i] + (ws[i + 1] - ws[i]) * (f - i);
+}
+
+/** Direzione (angolo) della curva in t. */
+function angleAt(curve, t) {
+  const a = at(curve, Math.max(0, t - 0.03));
+  const b = at(curve, Math.min(1, t + 0.03));
+  return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+/** Bordi sinistro/destro della curva al punto i (rispetto al verso di percorrenza). */
+export function side(curve, i) {
+  const { pts, ws } = curve;
+  const a = pts[Math.max(0, i - 1)];
+  const b = pts[Math.min(pts.length - 1, i + 1)];
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const nx = -(b.y - a.y) / len;
+  const ny = (b.x - a.x) / len;
+  const h = ws[i] / 2;
+  const p = pts[i];
+  return { l: { x: p.x + nx * h, y: p.y + ny * h }, r: { x: p.x - nx * h, y: p.y - ny * h } };
+}
+
+/** Tronco: sale sinuoso (onda che parte da zero alla base), largo alla base con un piede svasato. */
+function buildTrunk(x, y0, H, w, sway) {
+  const N = 16;
+  const phase = rand(0, Math.PI * 2);
+  const freq = rand(0.7, 0.95); // poco meno di un'onda intera sull'altezza
+  const lean = rand(-0.15, 0.15);
+  const pts = [];
+  const ws = [];
+  for (let k = 0; k <= N; k++) {
+    const s = k / N;
+    const off = sway * (Math.sin(2 * Math.PI * freq * s + phase) - Math.sin(phase)) + lean * s * H * 0.1;
+    pts.push({ x: x + off, y: y0 + s * H });
+    const flare = Math.max(0, 1 - s * 6) ** 2; // piede del tronco
+    const tip = Math.max(0, (s - 0.8) / 0.2) ** 1.5; // in cima si assottiglia come un ramo
+    ws.push(w * (1.25 - 0.8 * s + 0.6 * flare) * (1 - 0.6 * tip));
+  }
+  return { pts, ws };
+}
+
+/**
+ * Ramo morbido: dalla base `p0` nella direzione `ang` per `len` metri; si incurva di `bend`
+ * (arco) con un'ondulazione `wiggle`; la larghezza passa da w0 a w1.
+ */
+function curvyBranch(p0, ang, len, w0, w1, bend, wiggle, level) {
+  const M = 12;
+  const phase = rand(0, Math.PI * 2);
+  const ux = Math.cos(ang);
+  const uy = Math.sin(ang);
+  const pts = [];
+  const ws = [];
+  for (let k = 0; k <= M; k++) {
+    const s = k / M;
+    const off = bend * Math.sin(Math.PI * s) + wiggle * Math.sin(3 * Math.PI * s + phase) * s;
+    pts.push({ x: p0.x + ux * len * s - uy * off, y: p0.y + uy * len * s + ux * off });
+    ws.push(w0 + (w1 - w0) * s ** 0.8);
+  }
+  return { pts, ws, len, level };
+}
+
+/**
+ * Struttura dei rami: livello 0 = rami principali (spessi), 1 = rametti, 2 = ramoscelli.
+ * Un ramo principale per ogni lobo della chioma, che parte dal tronco sinuoso.
+ */
+function buildBranches(trunk, x, topY, circles) {
+  const out = [];
+  const H = trunk.pts.at(-1).y - trunk.pts[0].y;
+  for (const c of circles) {
+    // punto di partenza sul tronco, nella parte alta
+    const s0 = Math.min(0.97, (topY - 0.4 + rand(0, 1.1) - trunk.pts[0].y) / H);
+    const p0 = at(trunk, s0);
+    // il ramo principale arriva verso il bordo esterno del lobo
+    const tx = c.x + (c.x - x) * 0.45;
+    const ty = c.y + c.r * 0.55;
+    const ang = Math.atan2(ty - p0.y, tx - p0.x);
+    const len = Math.hypot(tx - p0.x, ty - p0.y);
+    const w0 = widthAt(trunk, s0) * 0.55;
+    const main = curvyBranch(p0, ang, len, w0, 0.05, TREE.branchBend * rand(0.5, 1) * sign(), TREE.branchWiggle, 0);
+    out.push(main);
+
+    const twigs = 3 + Math.round(random());
+    for (let i = 0; i < twigs; i++) {
+      const t = 0.3 + (i / twigs) * 0.6 + rand(-0.05, 0.05);
+      const p = at(main, t);
+      const sd = i % 2 ? 1 : -1;
+      const a = angleAt(main, t) + sd * rand(0.5, 0.95);
+      const tw = curvyBranch(
+        p, a, c.r * rand(0.6, 0.95), widthAt(main, t) * 0.65, 0.025,
+        TREE.branchBend * 0.5 * rand(0.4, 1) * sign(), TREE.branchWiggle * 0.6, 1,
+      );
+      out.push(tw);
+      // ramoscello in punta
+      const u = rand(0.55, 0.8);
+      out.push(
+        curvyBranch(
+          at(tw, u), angleAt(tw, u) + sd * rand(0.35, 0.7), c.r * rand(0.25, 0.45), widthAt(tw, u) * 0.7, 0.015,
+          TREE.branchBend * 0.25 * sign(), 0.03, 2,
+        ),
+      );
     }
   }
   return out;
 }
 
-/** Punto su una curva quadratica. */
-function quad(b, t) {
-  const u = 1 - t;
-  return {
-    x: u * u * b.x0 + 2 * u * t * b.cx + t * t * b.x1,
-    y: u * u * b.y0 + 2 * u * t * b.cy + t * t * b.y1,
-  };
+// ------------------------------------------------------------------ cristalli
+
+const SIDE_SHAPES = ['fiocco', 'stella', 'gemma', 'esagono'];
+
+/** Forma a caso con le frequenze di TREE.shapes. */
+function pickShape() {
+  const entries = Object.entries(TREE.shapes);
+  let r = random() * entries.reduce((s, [, w]) => s + w, 0);
+  for (const [k, w] of entries) if ((r -= w) <= 0) return k;
+  return 'fiocco';
 }
 
+/** Dimensione tipica di ogni forma (m): raggio, o lunghezza per la stalattite. */
+const SIZE = {
+  fiocco: [0.11, 0.17],
+  stella: [0.1, 0.16],
+  gemma: [0.1, 0.15],
+  esagono: [0.08, 0.12],
+  goccia: [0.05, 0.08],
+  stalattite: [0.22, 0.45],
+  neve: [0.08, 0.12],
+};
+
 /**
- * Struttura dei rami: livello 0 = rami principali (spessi), 1 = rametti, 2 = ramoscelli.
- * Ogni ramo è una curva quadratica {x0,y0,cx,cy,x1,y1,level}.
+ * Cristalli lungo i rami. Sul ramo principale solo verso la punta, sui rametti e ramoscelli
+ * per tutta la lunghezza, a passo irregolare e alternati sui due lati; in punta un grappolo.
+ * Il punto (x, y) è il centro della forma, usato anche per le collisioni.
  */
-function buildBranches(x, topY, circles) {
+function growCrystals(branches, step) {
   const out = [];
-  const add = (x0, y0, ang, len, level, bend) => {
-    const x1 = x0 + Math.cos(ang) * len;
-    const y1 = y0 + Math.sin(ang) * len;
-    const mx = (x0 + x1) / 2 - Math.sin(ang) * bend;
-    const my = (y0 + y1) / 2 + Math.cos(ang) * bend;
-    const b = { x0, y0, cx: mx, cy: my, x1, y1, level };
-    out.push(b);
-    return b;
+  const add = (shape, x, y, big = false) => {
+    const [a, b] = SIZE[shape];
+    const size = rand(a, b) * (big ? 1.3 : 1);
+    const hanging = shape === 'goccia' || shape === 'stalattite';
+    out.push({ shape, x, y, size, rot: hanging ? 0 : rand(0, Math.PI * 2), k: random(), alive: true });
+    return size;
   };
 
-  for (const c of circles) {
-    const y0 = topY - 0.4 + rand(0, 1.1);
-    // il ramo principale arriva verso il bordo esterno del lobo
-    const tx = c.x + (c.x - x) * 0.45;
-    const ty = c.y + c.r * 0.55;
-    const ang = Math.atan2(ty - y0, tx - x);
-    const len = Math.hypot(tx - x, ty - y0);
-    const main = add(x, y0, ang, len, 0, rand(-0.3, 0.3));
-
-    const twigs = 3 + Math.round(Math.random());
-    for (let i = 0; i < twigs; i++) {
-      const t = 0.3 + (i / twigs) * 0.6 + rand(-0.05, 0.05);
-      const p = quad(main, t);
-      const side = i % 2 ? 1 : -1;
-      const a = ang + side * rand(0.5, 0.95);
-      const twig = add(p.x, p.y, a, c.r * rand(0.6, 0.95), 1, rand(-0.15, 0.15));
-      // ramoscello in punta
-      const q = quad(twig, rand(0.55, 0.8));
-      add(q.x, q.y, a + side * rand(0.35, 0.7), c.r * rand(0.25, 0.45), 2, 0);
+  for (const b of branches) {
+    const from = b.level === 0 ? 0.6 : 0.25;
+    let t = from + rand(0, 0.1);
+    let sd = sign();
+    while (t < 0.95) {
+      const p = at(b, t);
+      const w = widthAt(b, t);
+      const shape = pickShape();
+      if (shape === 'goccia' || shape === 'stalattite') {
+        // appesa sotto il ramo: il centro sta sotto il bordo inferiore
+        const [a, z] = SIZE[shape];
+        const s = rand(a, z);
+        const drop = shape === 'stalattite' ? s / 2 : s * 1.4;
+        out.push({ shape, x: p.x, y: p.y - w / 2 - drop, size: s, rot: 0, k: random(), alive: true });
+      } else if (shape === 'neve') {
+        // cuscinetto appoggiato sopra il ramo
+        const [a, z] = SIZE.neve;
+        const s = rand(a, z);
+        out.push({ shape, x: p.x, y: p.y + w / 2 + s * 0.55, size: s, rot: rand(-0.3, 0.3), k: random(), alive: true });
+      } else {
+        const ang = angleAt(b, t);
+        const off = rand(0.1, 0.22) * sd;
+        add(shape, p.x - Math.sin(ang) * off, p.y + Math.cos(ang) * off);
+        sd = -sd;
+      }
+      t += (step * rand(0.6, 1.3)) / b.len;
+    }
+    // Grappolo in punta (più ricco sui ramoscelli): forme "da lato", la prima più grande
+    const tip = at(b, 1);
+    const n = b.level === 2 ? 3 : b.level === 1 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2);
+      const r = i === 0 ? rand(0, 0.06) : rand(0.16, 0.26);
+      const shape = SIDE_SHAPES[Math.floor(random() * SIDE_SHAPES.length)];
+      add(shape, tip.x + Math.cos(a) * r, tip.y + Math.sin(a) * r, i === 0);
     }
   }
   return out;

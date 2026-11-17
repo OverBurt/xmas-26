@@ -22,8 +22,8 @@
   "preview": 0.6,
   "stars": [
     2000,
-    3500,
-    5000
+    4000,
+    6000
   ],
   "camera": {
     "aimCenter": 12,
@@ -31,13 +31,28 @@
   },
   "forts": [
     {
-      "x": 12,
-      "arches": 3,
-      "pierRows": 4,
+      "x": 12.5,
+      "arches": 2,
+      "storeys": 3,
+      "pierW": [
+        0.9,
+        0.8,
+        0.7
+      ],
+      "archW": [
+        1.4,
+        1.3,
+        1.3
+      ],
+      "pierRows": [
+        3,
+        3,
+        2
+      ],
       "upperRows": 1,
       "ice": {
         "sculpture": "ponte",
-        "margin": 1.3
+        "margin": 0.9
       }
     }
   ],
@@ -68,13 +83,13 @@
       "lean": 0.6,
       "door": {
         "h": 2.1,
-        "points": 150
+        "points": 200
       },
       "windows": [
         {
           "y": 2.45,
           "h": 1.65,
-          "points": 400
+          "points": 1500
         }
       ],
       "chimney": {
@@ -83,7 +98,7 @@
         "top": 1.7,
         "h": 1.4,
         "tilt": 12,
-        "points": 1000
+        "points": 1050
       }
     },
     {
@@ -101,7 +116,7 @@
         {
           "y": 2.25,
           "h": 1.45,
-          "points": 700
+          "points": 1500
         }
       ],
       "chimney": {
@@ -110,7 +125,7 @@
         "top": 1.7,
         "h": 1.4,
         "tilt": 12,
-        "points": 1000
+        "points": 1350
       },
       "snowCap": true
     }

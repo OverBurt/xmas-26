@@ -1,8 +1,9 @@
 import { Polygon, Circle, Vec2 } from 'planck';
 import { ICE, GLASS, SNOW, SNOWMAN, FRACTURE, GIFTS } from '../config.js';
 import { area, centroid, splitByLine, sanitize } from './polygon.js';
+import { random } from '../core/rng.js';
 
-const rand = (a, b) => a + Math.random() * (b - a);
+const rand = (a, b) => a + random() * (b - a);
 
 // ---------------------------------------------------------------- pre-frattura
 
@@ -25,8 +26,8 @@ export function prefracture(poly, level) {
     const p = { x: c.x + ax * (s - cAxis), y: c.y + ay * (s - cAxis) };
     pieces = cutAll(pieces, p, rotate({ x: ax, y: ay }, rand(-0.45, 0.45)));
   }
-  if (level === 0 && Math.random() < 0.6 && pieces.length) {
-    const i = Math.floor(Math.random() * pieces.length);
+  if (level === 0 && random() < 0.6 && pieces.length) {
+    const i = Math.floor(random() * pieces.length);
     const split = cutAll([pieces[i]], centroid(pieces[i]), rotate({ x: -ay, y: ax }, rand(-0.3, 0.3)));
     if (split.length === 2) pieces.splice(i, 1, ...split);
   }
@@ -74,9 +75,9 @@ export function snowPieces(poly, level) {
 /** Smussa 1–2 spigoli di un pezzo convesso (resta convesso). */
 function lumpify(poly) {
   let out = poly;
-  const chops = Math.random() < 0.5 ? 1 : 2;
+  const chops = random() < 0.5 ? 1 : 2;
   for (let k = 0; k < chops && out.length < 7; k++) {
-    const i = Math.floor(Math.random() * out.length);
+    const i = Math.floor(random() * out.length);
     const prev = out[(i + out.length - 1) % out.length];
     const v = out[i];
     const next = out[(i + 1) % out.length];
@@ -144,12 +145,12 @@ const MATERIALS = { ice: ICE, glass: GLASS, snow: SNOW };
  * Crea un corpo poligonale di ghiaccio, neve o vetro (forma locale, centrata sull'origine del corpo).
  * Le schegge di vetro non si rompono più.
  */
-export function createIceBody(pw, poly, x, y, angle, level, awake = true, material = 'ice') {
+export function createIceBody(pw, poly, x, y, angle, level, awake = true, material = 'ice', dens = 1) {
   const m = MATERIALS[material];
   const body = pw.world.createBody({ type: 'dynamic', position: new Vec2(x, y), angle, awake });
   body.createFixture({
     shape: new Polygon(poly.map((v) => new Vec2(v.x, v.y))),
-    density: m.density,
+    density: m.density * dens,
     friction: m.friction,
     restitution: m.restitution,
   });
@@ -162,6 +163,7 @@ export function createIceBody(pw, poly, x, y, angle, level, awake = true, materi
     poly,
     area: Math.abs(area(poly)),
     pieces,
+    dens, // moltiplicatore di densità (neve compattata alla base dei fortini alti): scala anche la soglia di rottura
     flash: 0,
     life: undefined, // definita per i detriti che svaniscono
   });
@@ -172,12 +174,12 @@ export function createIceBody(pw, poly, x, y, angle, level, awake = true, materi
  * Blocco di neve composto da più poligoni convessi (es. il riempimento sopra un arco, che è concavo).
  * Quando si rompe, ogni poligono diventa una zolla a sé.
  */
-export function createSnowCompound(pw, polys, x, y, angle = 0, awake = false) {
+export function createSnowCompound(pw, polys, x, y, angle = 0, awake = false, dens = 1) {
   const body = pw.world.createBody({ type: 'dynamic', position: new Vec2(x, y), angle, awake });
   for (const poly of polys) {
     body.createFixture({
       shape: new Polygon(poly.map((v) => new Vec2(v.x, v.y))),
-      density: SNOW.density,
+      density: SNOW.density * dens,
       friction: SNOW.friction,
       restitution: SNOW.restitution,
     });
@@ -187,6 +189,7 @@ export function createSnowCompound(pw, polys, x, y, angle = 0, awake = false) {
     level: 0,
     area: polys.reduce((a, p) => a + Math.abs(area(p)), 0),
     pieces: polys,
+    dens,
     flash: 0,
     life: undefined,
   });
@@ -216,13 +219,15 @@ export class Fracture {
     this.particles = particles;
     this.queue = new Map(); // body → {eff, by}
     this.broken = 0;
+    this.brokenArea = 0; // m² di neve/ghiaccio rotto (punteggio proporzionale alla superficie)
     /** Pacchi che hanno sfondato la neve in questo step (vengono rallentati). */
     this.absorbed = new Set();
   }
 
   threshold(ud) {
     if (ud.kind === 'snowman') return SNOWMAN.splitImpulse;
-    if (ud.kind === 'snow') return ud.ball ? SNOWMAN.ballImpulse : SNOW.breakImpulse * SNOW.levelFactor ** ud.level;
+    // la soglia scala con la densità: a parità di colpo un mattone più pesante non diventa più fragile
+    if (ud.kind === 'snow') return ud.ball ? SNOWMAN.ballImpulse : SNOW.breakImpulse * SNOW.levelFactor ** ud.level * (ud.dens ?? 1);
     if (ud.kind === 'ice') return ud.pieces ? ICE.breakImpulse * FRACTURE.levelFactor ** ud.level : Infinity;
     return Infinity;
   }
@@ -260,11 +265,20 @@ export class Fracture {
     const list = [...this.queue].sort((a, b) => b[1].eff - a[1].eff);
     this.queue.clear();
     let count = dynamicCount;
-    for (const [body, { eff, by }] of list) {
+    let done = 0;
+    for (const [body, hit] of list) {
+      const { eff, by } = hit;
       const ud = body.getUserData();
       if (ud.dead) continue;
+      // Al massimo maxPerStep rotture per step: le altre restano in coda per gli step successivi
+      // (un crollo grande non crea decine di corpi nello stesso frame → niente scatti)
+      if (done >= FRACTURE.maxPerStep) {
+        this.queue.set(body, hit);
+        continue;
+      }
+      done++;
       const extra = ud.pieces ? ud.pieces.length - 1 : ud.kind === 'snowman' ? 2 : 0;
-      if (count + extra > FRACTURE.maxBodies) break;
+      if (count + extra > FRACTURE.maxBodies) continue; // salta solo le rotture che aggiungono corpi
 
       let pieces;
       if (ud.kind === 'snowman') pieces = this.splitSnowman(body);
@@ -274,7 +288,10 @@ export class Fracture {
 
       added.push(...pieces);
       count += pieces.length - 1;
-      if (ud.kind !== 'snowman') this.broken++;
+      if (ud.kind !== 'snowman') {
+        this.broken++;
+        this.brokenArea += ud.area || 0;
+      }
       if ((ud.kind === 'snow' || ud.kind === 'snowman') && by && !by.getUserData()?.dead) this.absorbed.add(by);
     }
 
@@ -309,7 +326,7 @@ export class Fracture {
       const local = piece.map((p) => ({ x: p.x - c.x, y: p.y - c.y }));
       const rx = c.x * cos - c.y * sin;
       const ry = c.x * sin + c.y * cos;
-      const nb = createIceBody(this.pw, local, pos.x + rx, pos.y + ry, angle, (ud.level ?? 0) + 1, true, material);
+      const nb = createIceBody(this.pw, local, pos.x + rx, pos.y + ry, angle, (ud.level ?? 0) + 1, true, material, ud.dens ?? 1);
       const rl = Math.hypot(rx, ry) || 1;
       nb.setLinearVelocity(new Vec2(v.x - w * ry + (rx / rl) * kick * rand(0.3, 1), v.y + w * rx + (ry / rl) * kick * rand(0.3, 1)));
       nb.setAngularVelocity(w + rand(-2, 2));

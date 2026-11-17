@@ -1,5 +1,6 @@
 import { Box, Circle, Vec2, Settings } from 'planck';
 import { SNOW, SNOWMAN } from '../config.js';
+import { random } from '../core/rng.js';
 
 const SCARVES = ['#e2453c', '#2f9e6b', '#3a6fd8', '#f0a91c'];
 const OVERLAP = 0.12; // le palle sono un po' "schiacciate" l'una sull'altra
@@ -27,7 +28,7 @@ export function buildSnowman(pw, x, y) {
     kind: 'snowman',
     level: 0,
     flash: 0,
-    deco: { scarf: SCARVES[Math.floor(Math.random() * SCARVES.length)], facing: -1 },
+    deco: { scarf: SCARVES[Math.floor(random() * SCARVES.length)], facing: -1 },
   });
   return body;
 }

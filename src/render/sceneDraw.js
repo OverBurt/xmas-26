@@ -1,6 +1,7 @@
 import { VIEW_W, VIEW_H, GIFTS } from '../config.js';
 import { WALL } from '../entities/house.js';
 import { centroid } from '../physics/polygon.js';
+import { drawTree, drawPine } from './treeDraw.js';
 
 const ZONE_LABEL_OFFSET = 0.9;
 
@@ -55,12 +56,13 @@ export function drawScene(ctx, game, alpha) {
   for (const hl of game.hills) fillPoly(ctx, hl.poly);
 
   for (const h of game.houses) drawHouse(ctx, h);
+  for (const p of game.pines) drawPine(ctx, p, px);
   for (const t of game.trees) drawTree(ctx, t, px);
 
   // Corpi fisici (statici e dinamici), interpolati
   for (let b = pw.world.getBodyList(); b; b = b.getNext()) {
     const ud = b.getUserData();
-    if (!ud || ud.kind === 'ground' || ud.kind === 'house' || ud.kind === 'tree' || ud.kind === 'hill') continue;
+    if (!ud || ud.kind === 'ground' || ud.kind === 'house' || ud.kind === 'tree' || ud.kind === 'pine' || ud.kind === 'hill') continue;
     const p = b.getPosition();
     const prev = pw.prev.get(b);
     const x = prev ? lerp(prev.x, p.x, alpha) : p.x;
@@ -385,66 +387,6 @@ function drawHouse(ctx, h) {
   }
   ctx.fillStyle = '#6a4458';
   for (let f = h.body.getFixtureList(); f; f = f.getNext()) fillPoly(ctx, f.getShape().m_vertices);
-}
-
-/** Albero: tronco e rami, chioma di cristalli (un unico tracciato), cristalli che cadono. */
-function drawTree(ctx, t, px) {
-  const d = t.def;
-  const w = d.trunkW ?? 0.7;
-  ctx.fillStyle = '#4a3326';
-  ctx.beginPath();
-  ctx.moveTo(t.base.x - w * 0.75, t.base.y);
-  ctx.lineTo(t.base.x + w * 0.75, t.base.y);
-  ctx.lineTo(t.base.x + w * 0.35, t.top.y + 1.2);
-  ctx.lineTo(t.base.x - w * 0.35, t.top.y + 1.2);
-  ctx.fill();
-  // Rami: dal più spesso al più sottile, un tracciato per spessore
-  ctx.strokeStyle = '#4a3326';
-  ctx.lineCap = 'round';
-  for (const [level, width] of [[0, 0.16], [1, 0.08], [2, 0.045]]) {
-    ctx.lineWidth = width;
-    ctx.beginPath();
-    for (const b of t.branches) {
-      if (b.level !== level) continue;
-      ctx.moveTo(b.x0, b.y0);
-      ctx.quadraticCurveTo(b.cx, b.cy, b.x1, b.y1);
-    }
-    ctx.stroke();
-  }
-
-  ctx.strokeStyle = '#e8f6ff';
-  ctx.lineWidth = Math.max(1.6 * px, 0.035);
-  ctx.beginPath();
-  for (const c of t.crystals) if (c.alive) flake(ctx, c.x, c.y, c.size, c.rot);
-  ctx.stroke();
-
-  for (const c of t.falling) {
-    ctx.globalAlpha = Math.min(1, c.life / 0.8);
-    ctx.beginPath();
-    flake(ctx, c.x, c.y, c.size, c.rot);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-}
-
-/** Cristallo di neve a sei bracci, con due "rametti" per braccio. */
-function flake(ctx, x, y, r, rot) {
-  for (let i = 0; i < 3; i++) {
-    const a = rot + (i * Math.PI) / 3;
-    const cx = Math.cos(a) * r;
-    const cy = Math.sin(a) * r;
-    ctx.moveTo(x - cx, y - cy);
-    ctx.lineTo(x + cx, y + cy);
-  }
-  for (let i = 0; i < 6; i++) {
-    const a = rot + (i * Math.PI) / 3;
-    const mx = x + Math.cos(a) * r * 0.55;
-    const my = y + Math.sin(a) * r * 0.55;
-    for (const s of [-0.6, 0.6]) {
-      ctx.moveTo(mx, my);
-      ctx.lineTo(mx + Math.cos(a + s) * r * 0.35, my + Math.sin(a + s) * r * 0.35);
-    }
-  }
 }
 
 /** Dettagli del pupazzo disegnati sulla palla (ruotano con lei quando rotola). */

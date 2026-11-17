@@ -95,7 +95,7 @@ function slab(pw, bodies, x0, x1, y) {
  * Tenda ad A: due lastre inclinate con la base orizzontale (poggiano di piatto)
  * e una faccia verticale in cima con cui si appoggiano l'una all'altra.
  */
-function tent(pw, cx, y, half, h) {
+export function tent(pw, cx, y, half, h) {
   const t = ICE.thickness * 1.25; // spessore orizzontale della lastra
   const d = t * (h / half); // altezza della faccia di contatto in cima
   const g = GAP / 2;

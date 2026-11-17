@@ -32,7 +32,7 @@ snow and ice that break realistically. A parcel is delivered (and scores points)
 | **M6 polish** (quality tiers, offline PWA, iOS tests, HTTPS publishing) | ❌ |
 | Level 3 "La tormenta" (chairlift + wind) | ❌ only proposed |
 
-**The latest changes (since the "La collina" level onwards) have not been tested on the phone**: it was asleep/locked. Retest on Android (see §4).
+**The latest changes (since the "La collina" level onwards, including the sinuous tree and the vertical forts) have not been tested on the phone; verified in desktop Chrome only**: it was asleep/locked. Retest on Android (see §4).
 
 ## 3. Running the project
 
@@ -46,11 +46,14 @@ npm run build      # static output in dist/
 - Keys: `R` reset, `L` level selector, `Esc` closes the selector; with `?debug` also `W` wake everything, `S` stress.
 
 ### Levels (`src/game/levels/`, order in `index.js`)
-| id | Name | Content |
-|---|---|---|
-| `villaggio-albero` | Il villaggio · albero | tree with snow crystals that fall like leaves, snowman, 2 houses (snow cap on house A's chimney, snow drift at house B's door) |
-| `villaggio-fortini` | Il villaggio · fortini e igloo | fort with 2 arches + ice **pyramid** with crystals; **igloo** with a snowman on top; tower with 1 arch + **prism tower**; snowman on the ground |
-| `la-collina` | La collina · fortino ad arcate | fort with 3 arches + ice **bridge**, two snowmen at the sides; house A on the ground, house B on a 3 m **hill** (snow cap on the chimney); trajectory preview 60% |
+**One level for now** (user decision, 18/11): `il-villaggio` — from the left: pine, sleigh, sling, **crystal tree right after the sling**, arcade fort (2 arches × 2 storeys, ice bridge, snowmen) towards the houses, house A on the ground (snow drift at the door), **pine between the houses**, house B on a 3 m hill (snow cap on the chimney), **three pines** after it. Currently **very hard** (medium simulated player 1.6 deliveries out of 5): scoring/difficulty to be tuned later (user decision). The old JSONs (`villaggio-albero`, `villaggio-fortini`, `la-collina`) are still in the folder but not listed and use superseded keys.
+
+### Measurement tools (`tools/sim/`, headless, seeded)
+- `npm test` — stability of every listed level (≤ 3 cm, 0 breaks, all asleep).
+- `npm run sim:grid -- <id> [--noplug]` — valid shots per opening (3 parcels × 546).
+- `npm run sim:score -- <id>` — **regenerates the opening points and the 1st star** in the level JSON (always rerun after changing obstacles), saves the grid for play.
+- `npm run sim:play -- <id> [N] [--stars]` — full 5-parcel games with simulated players; `--stars` writes 2nd/3rd star thresholds.
+- `node tools/sim/sacr.mjs <id>` — effect of a demolition shot on the following shots.
 
 ## 4. How to test (important: the user wants verifications, not assumptions)
 
@@ -61,7 +64,7 @@ npm run build      # static output in dist/
   - `xmas.fire(type, angle, pull)` — performs the throw in the visible game (only in the `ready` state: use `xmas.game.endIntro()` first if the intro is running).
   - `xmas.findShot(type, zone, a0, a1, p0, p1)` — searches for a throw that delivers through an opening.
   - `xmas.wakeAll()`, `xmas.stress()`.
-- **Stability test** (always run it after touching structures): save the positions of `game.slabs`, `xmas.wakeAll()`, wait 6–8 s, measure the maximum displacement and `game.fracture.broken`; everything has to go back to sleep (`pw.counts().awake === 0`) without breaking. Current reference: ≤ 5–7 cm (they are the filler blocks beside the outer arches that settle), 0 breaks.
+- **Stability test** (always run it after touching structures): save the positions of `game.slabs`, `xmas.wakeAll()`, wait 6–8 s, measure the maximum displacement and `game.fracture.broken`; everything has to go back to sleep (`pw.counts().awake === 0`) without breaking. Current reference: ≤ 3 cm (`npm test`; il-villaggio 0.5 cm) (they are the filler blocks beside the outer arches that settle), 0 breaks.
 - **Difficulty grid**: loop over `angle 0.1→1.35 step 0.05` × `pull 1.2→2.2 step 0.1` (546 throws per gift) with `new Game(level)` + `launch()` + `step()` up to 480 steps, counting the deliveries per opening. It takes ~30–40 s per level: run it in the background (async) and read the result with a second call (the JS tool has a 45 s timeout).
 - Fracture patterns and missing merlons are **random** → the simulations are not perfectly reproducible.
 - Vite reloads the whole page when files change (main.js/game.js): wait ~1 s before using `xmas`.
@@ -100,19 +103,22 @@ src/
 │  ├─ house.js           house in cross-section: converging walls, door/window openings with glass (separate static bodies),
 │  │                     funnel chimney tilted to the left, delivery zones (convex polygons), snow on the openings
 │  ├─ hill.js            hill (static trapezoid) for houses at different heights
-│  ├─ snowFort.js        snow forts: "wall" type (staggered bricks + merlons) and "arcade" type
+│  ├─ snowFort.js        snow forts: "wall" type (staggered bricks + merlons) and "arcade" type;
+│  │                     `storeys` stacks arcade storeys (tapering piers/arches, denser snow at the base, floor slab between storeys);
+│  │                     few large pieces: one block per pier, arches of 3 bodies, long bricks
 │  │                     (piers, arches of wedge-shaped voussoirs, fill blocks, rows of bricks, then an ice sculpture or merlons)
 │  ├─ iceSculpture.js    ice compositions: "piramide", "torre", "ponte" (leaning slabs, hexagonal/triangular prisms, crystals)
 │  ├─ iceCrystal.js      clusters of 3 solid crystals with flat bases
 │  ├─ iceTower.js        old ice "castle of cards" (no longer used in the levels, `towers` in the JSON)
 │  ├─ igloo.js           dome of 7 snow voussoirs on the ground, flat keystone (holds a snowman)
 │  ├─ snowman.js         snowman = single body (3 circles + flat foot) that splits into balls
-│  └─ snowTree.js        tree: static trunk, procedural branches, crystals attached to the branches (non-physical, checked by hand)
+│  └─ snowTree.js        tree: sinuous static trunk (follows the curve), curvy branches, crystals of 7 shapes on the branches (non-physical, checked by hand)
 ├─ game/
 │  ├─ game.js            the whole game: level construction, state machine, input, glass, deliveries, scoring, intro
 │  └─ levels/*.json + index.js
 └─ render/
    ├─ sceneDraw.js       provisional drawing of everything (grid, bodies, houses, tree, sleigh, slingshot, HUD, labels, end panel, intro title)
+   ├─ treeDraw.js        tree drawing: tapered ribbons for trunk/branches, crystal shapes batched by type
    └─ particles.js       pool of non-physical particles (shards, snow powder, sparks)
 tools/phone/             tests on an Android phone via adb (see above)
 docs/GDD.md              design + chronological history of the iterations with measurements
@@ -127,7 +133,7 @@ docs/GDD.md              design + chronological history of the iterations with m
 - **Contact skin**: Planck keeps polygons apart by `2·polygonRadius − linearSlop` = 1.5 cm. **Every stacked piece must be created at that distance** (`GAP` constant in the builders), otherwise the stacks "jump". Structures are created **asleep** (`awake:false`).
 - **Do not modify the world inside contact callbacks**: breakages, glass, deliveries are queued and applied after `pw.step()` (see `Fracture.process`, `shatterGlass`, `pendingDeliveries`).
 - **Breakage**: `post-solve` → `onImpulse(body, impulse, other, approachSpeed)` → `Fracture.hit`. Threshold per material/level (`ICE`, `SNOW`, `SNOWMAN`, `FRACTURE` in config). Parcels multiply the impulse (`damage`: small 0.5, standard 1, big 1.6). **Nothing breaks below 0.6 m/s of approach speed** (without this, settling tall stacks broke the base). Snow that hits the ground/hill: threshold × 0.2.
-- **Budget**: max 130 dynamic bodies (breakages beyond that are skipped); small debris disappears (ice 3 s, snow 1.4 s, glass 1.8 s).
+- **Budget**: max 130 dynamic bodies (breakages that would add bodies beyond that are skipped); at most `FRACTURE.maxPerStep` (6) breaks per physics step, the rest wait in the queue (no frame spikes in big collapses); small debris disappears (ice 3 s, snow 1.4 s, glass 1.8 s).
 - **Glass**: static bodies; in `pre-solve` the contact is disabled when it is to break (the parcel passes through, slowed to 85%); a **parcel always breaks it**, other objects only above 0.8 N·s.
 - **Deliveries**: centre of the parcel inside a convex zone of the house (behind a door/window, inside the chimney flue). The door zone reaches 0.55 m **in front** of the glass (a parcel arriving at the door, even rolling, gets in). **Touching the inner side/edge of the chimney** (within 7 cm) counts as a chimney delivery (checked in begin-contact and pre-solve).
 - **Tree**: crystals are not bodies; at every step the segment travelled by the parcel (prev→current) is tested against the crystals; each crystal hit falls like a leaf and slows the parcel: `v *= (1 − 0.02/mass)`.
@@ -167,8 +173,8 @@ docs/GDD.md              design + chronological history of the iterations with m
 - 5 parcels on the sleigh, taken in **any order**. Gestures: drag a parcel onto the slingshot → it arms itself and **the same gesture** continues as aiming; pulling the **empty slingshot** arms the first parcel; tapping a parcel loads it (tapping another swaps them); a drag that is too short cancels. Dragging on empty space moves the view (it comes back after 2 s).
 - While aiming the camera **moves to the right** (left edge just behind the slingshot) and widens by up to +7 m with tension. The aim depends only on the finger (camera "frozen" at the start of the gesture).
 - Parcels: small 0.4 m (light, damage 0.5), standard 0.55 m, big 0.8×0.6 m (heavy, damage 1.6). Max velocity ~24 m/s.
-- **Delivery**: chimney 1000, windows 400–700 (by level), door 150–200. A throw serves at most one house (the parcel disappears). A house can receive several parcels (each one scores).
-- **Score** = deliveries + 10 per broken piece of ice/snow + 2 per crystal knocked off the tree + **1500 if every house has received at least one parcel**.
+- **Delivery**: one formula for every opening, **measured difficulty only, snow included**: `1000·(60/valid shots)^0.75`, 50–3000, generated by `tools/sim/score.mjs`. Each repeated delivery in the same opening is worth 60% of the previous one. A throw serves at most one house (the parcel disappears). A house can receive several parcels (each one scores).
+- **Score** = deliveries + 15 points per m² of broken snow/ice + 2 per crystal + **1500 if every house has received at least one parcel**. Stars: 1st = two cheapest deliveries; 2nd/3rd from simulated players.
 - The level **ends only when the parcels run out**. End panel with stars (level thresholds), details, "Livelli" and "Riprova". Best score per level saved on the device.
 - Glass in doors and windows: always broken by a parcel. Snow on the chimney/at the door: has to be removed (it breaks or falls).
 
@@ -179,7 +185,10 @@ docs/GDD.md              design + chronological history of the iterations with m
 3. **3 levels** of increasing difficulty; **no personalised message**; **parcels with physical variants**; **audio: effects + music** (still to do).
 4. Original ice "castle of cards" → **rejected as not fitting the theme** (mountain setting). Replaced by snow. The ice came back only as **sculptures** (prisms, leaning slabs, crystals) on top of the forts, at the user's request.
 5. Snow forts: **only arcades** are kept. The "posts and planks" structures and the "lattice" wall were tried and **rejected as ugly**.
-6. **Crystal tree** (variant): kept, smaller, more visible branches, crystals **attached to the branches** (not uniform).
+6. **Crystal tree** (variant): kept, smaller, more visible branches, crystals **attached to the branches** (not uniform). Trunk and branches **sinuous**, crystals of **many shapes** (drops, snow, icicles…).
+12. **Forts are vertical** (tall towers of arcade storeys): they must force a **lob** instead of a direct shot. Stability comes from geometry and weights (taper, denser base, floor slab), not from more solver iterations.
+13. **Scoring by measured difficulty only** (single formula, snow plugs included → plugged chimneys pay more), decreasing value for repeated deliveries, breaks proportional to area, 1st star = two deliveries. Big parcel may enter the chimney. A house can receive several parcels — **confirmed**.
+14. **One level** for now; arcade fort (the layered fort of long/hollow pieces was tried and **rejected as too heavy**); solid snowy pines as obstacles/frame; the demolition shot must be a real alternative (measured ×2.35 with a low lob over the tree). Aim: longer finger stroke + soft response near max. Preview shows the **whole arc**. Dead code removed.
 7. **Igloo with a snowman** between the forts of level 2, to block the trajectory.
 8. Houses: **bigger**, walls **converging** upwards, door and windows **as large as possible** with **glass to break**; **funnel** chimney on the **left slope**, tilted to the left; the parcel that rolls up to the door gets in; the inner edge of the chimney counts as a delivery.
 9. Snow blocks have to **crumble easily when they fall to the ground**.
@@ -190,8 +199,8 @@ docs/GDD.md              design + chronological history of the iterations with m
 
 - **Graphics**: everything is still provisional (grid, flat shapes, square particles). The houses are drawn as solid shapes without details.
 - **Untested on the phone** since "La collina" onwards (snow, igloo, ice sculptures, glass, intro, chimney edge). Measure FPS during the big collapses (peak ~110 bodies).
-- **Scoring balance**: with the funnel chimney (easy when it is not plugged) the chimney worth 1000 is easier than the windows (400–700). The user has not yet decided whether to rebalance.
-- Not confirmed by the user: can a house receive several parcels (currently yes)?
+- **Star thresholds** were raised with the new scoring but are provisional: tune them by playing.
+- Collapse spike solved by the simpler forts (peak 101 bodies, worst frame 9 ms on desktop); still to measure on the phone.
 - The filler blocks beside the outer arches settle by 4–7 cm when they wake up (harmless, but visible if you look closely).
 - The scenery isn't designed for the iPhone: the "rotate the phone" overlay and the hint for adding it to the Home Screen exist, but have never been tested on iOS.
 - The old `iceTower.js` and the "wall" fort type (without arches) are no longer used in the levels.

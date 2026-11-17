@@ -51,16 +51,23 @@ export class Slingshot {
     return true;
   }
 
-  drag(wx, wy) {
-    let dx = wx - this.x;
-    let dy = wy - this.y;
+  /**
+   * Il dito in (wx, wy). `reach` = metri di dito per la tensione massima (corsa lunga, vedi SLING.strokePx):
+   * la frazione di corsa passa per la risposta dolce e diventa la tensione disegnata (≤ maxPull).
+   */
+  drag(wx, wy, reach = this.reach || SLING.maxPull) {
+    const dx = wx - this.x;
+    const dy = wy - this.y;
     const len = Math.hypot(dx, dy);
-    if (len > SLING.maxPull) {
-      dx *= SLING.maxPull / len;
-      dy *= SLING.maxPull / len;
+    if (len < 1e-6) {
+      this.pullX = this.pullY = 0;
+      return;
     }
-    this.pullX = dx;
-    this.pullY = dy;
+    const t = Math.min(1, len / reach);
+    const k = SLING.soft;
+    const pull = SLING.maxPull * (t * (1 - k) + k * (1 - (1 - t) ** 2));
+    this.pullX = (dx / len) * pull;
+    this.pullY = (dy / len) * pull;
   }
 
   update(dt) {
@@ -88,7 +95,7 @@ export class Slingshot {
   /** Rilascio: restituisce il colpo, oppure null se la tensione è troppo bassa (il pacco resta caricato). */
   release() {
     this.aiming = false;
-    if (this.tension < 0.12) {
+    if (this.tension < SLING.minTension) {
       this.pullX = this.pullY = 0;
       return null;
     }

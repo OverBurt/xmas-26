@@ -2,12 +2,13 @@ import { CAMERA, SLING, TURN, TRAJECTORY, SCORE, GLASS, INTRO, VIEW_W, VIEW_H } 
 import { Camera } from '../core/camera.js';
 import { PhysicsWorld } from '../physics/world.js';
 import { predictTrajectory } from '../physics/trajectory.js';
-import { buildIceTower } from '../entities/iceTower.js';
 import { buildHouse, zoneAt } from '../entities/house.js';
 import { buildSnowFort } from '../entities/snowFort.js';
 import { buildSnowman } from '../entities/snowman.js';
 import { SnowTree } from '../entities/snowTree.js';
 import { buildHill } from '../entities/hill.js';
+import { buildPine } from '../entities/pine.js';
+import { buildCardCastle } from '../entities/cardCastle.js';
 import { buildIgloo } from '../entities/igloo.js';
 import { launchGift } from '../entities/gift.js';
 import { Slingshot } from '../entities/slingshot.js';
@@ -16,6 +17,7 @@ import { Fracture, createIceBody, prefracture } from '../physics/fracture.js';
 import { Vec2 } from 'planck';
 import { Particles } from '../render/particles.js';
 import { centroid } from '../physics/polygon.js';
+import { random } from '../core/rng.js';
 
 /**
  * Stati del turno:
@@ -43,14 +45,11 @@ export class Game {
   reset() {
     const L = this.level;
     this.pw = new PhysicsWorld();
-    // Corpi che si rompono / svaniscono: ghiaccio, neve, pupazzi, schegge di vetro
-    this.slabs = (L.towers || []).flatMap((t) => buildIceTower(this.pw, t.x, t.floors));
-    // I merli su cui sta un pupazzo non devono mancare
-    this.forts = (L.forts || []).map((f, i) => {
-      const keep = (L.snowmen || []).filter((sm) => sm.fort === i && sm.merlon !== undefined).map((sm) => sm.merlon);
-      return buildSnowFort(this.pw, { ...f, keepMerlons: [...(f.keepMerlons || []), ...keep] });
-    });
-    for (const f of this.forts) this.slabs.push(...f.bodies);
+    // Corpi che si rompono / svaniscono: neve, ghiaccio, pupazzi, schegge di vetro
+    this.forts = (L.forts || []).map((f) => buildSnowFort(this.pw, f));
+    this.slabs = this.forts.flatMap((f) => f.bodies);
+    // Castelli di carte (prova): tende di lastre di ghiaccio e blocchi di neve orizzontali
+    for (const cc of L.cardCastles || []) this.slabs.push(...buildCardCastle(this.pw, cc).bodies);
     this.trees = (L.trees || []).map((t) => new SnowTree(this.pw, t));
     // Igloo, eventualmente con un pupazzo in cima
     for (const ig of L.igloos || []) {
@@ -59,16 +58,22 @@ export class Game {
       if (ig.snowman) this.slabs.push(buildSnowman(this.pw, igloo.cx, igloo.top));
     }
     this.hills = (L.hills || []).map((h) => buildHill(this.pw, h));
+    this.pines = (L.pines || []).map((p) => buildPine(this.pw, p));
     for (const sm of L.snowmen || []) {
-      // "fort": indice di un fortino → il pupazzo sta in cima, al centro
-      if (sm.fort !== undefined && !this.forts[sm.fort]) continue;
+      // "fort": indice di un fortino → il pupazzo sta in cima: su uno spalto ("side": 0 sinistro, 1 destro)
+      // oppure al centro (+ "dx"); senza "fort" sta a terra in "x"
       const f = sm.fort !== undefined ? this.forts[sm.fort] : null;
-      // "merlon": indice del merlo su cui sta il pupazzo; altrimenti al centro del fortino
-      const m = f && sm.merlon !== undefined ? f.merlons[sm.merlon] : null;
-      const x = m ? (m.x0 + m.x1) / 2 : f ? (f.x0 + f.x1) / 2 + (sm.dx || 0) : sm.x;
+      if (sm.fort !== undefined && !f) continue;
+      const ledge = f && sm.side !== undefined ? f.ledges[sm.side] : null;
+      const x = ledge ? (ledge.x0 + ledge.x1) / 2 : f ? (f.x0 + f.x1) / 2 + (sm.dx || 0) : sm.x;
       this.slabs.push(buildSnowman(this.pw, x, f ? f.top : sm.y || 0));
     }
     this.houses = L.houses.map((h) => buildHouse(this.pw, h));
+    // Valore delle aperture: base dal JSON, cala a ogni consegna ripetuta (SCORE.repeat)
+    for (const h of this.houses) for (const z of h.zones) {
+      z.base = z.points;
+      z.count = 0;
+    }
     for (const h of this.houses) this.slabs.push(...h.plugs);
     this.sleigh = new Sleigh(L.sleigh.x, L.gifts);
     this.sling = new Slingshot(L.sling.x, L.sling.y);
@@ -187,9 +192,13 @@ export class Game {
     // se l'intro è stata saltata la camera raggiunge la fionda con il suo inseguimento morbido
   }
 
-  /** Punteggio totale: consegne + ghiaccio rotto + bonus pacchi avanzati. */
+  /** Punteggio totale: consegne + neve/ghiaccio rotto (in base alla superficie) + cristalli + bonus. */
   get score() {
-    return this.deliveryScore + this.fracture.broken * SCORE.icePerBreak + this.crystals * SCORE.crystal + this.bonus;
+    return this.deliveryScore + this.breakScore + this.crystals * SCORE.crystal + this.bonus;
+  }
+
+  get breakScore() {
+    return Math.round(this.fracture.brokenArea * SCORE.perArea);
   }
 
   get crystals() {
@@ -328,6 +337,8 @@ export class Game {
   startAim(w) {
     const c = this.camera;
     this.aimCam = { ppm: c.ppm, x: c.x, bottom: c.bottom };
+    // Corsa lunga: metri di dito (con la camera di inizio gesto) per arrivare alla tensione massima
+    this.sling.reach = SLING.strokePx / c.ppm;
     this.mode = 'aim';
     this.sling.aiming = true;
     this.sling.drag(w.x, w.y);
@@ -339,7 +350,7 @@ export class Game {
     const s = this.sling;
     const v = s.velocity;
     const steps = Math.round(TRAJECTORY.steps * this.level.preview);
-    this.trajectory = predictTrajectory(s.loadX, s.loadY, v.vx, v.vy, steps);
+    this.trajectory = predictTrajectory(s.loadX, s.loadY, v.vx, v.vy, steps, 0, this.level.bounds.maxX);
     // Mirando la slitta non serve più: il bordo sinistro si ferma poco dietro la fionda
     // (spazio per il pacco tirato indietro) e tutto il resto dell'inquadratura va verso destra;
     // tendendo l'elastico la camera si allarga ancora.
@@ -366,7 +377,15 @@ export class Game {
     };
   }
 
+  /** I pacchi lanciati sono fermi (o usciti/consegnati)? Oltre TURN.maxGiftWait si va avanti comunque. */
+  giftsResting() {
+    if (this.stateTime > TURN.maxGiftWait) return true;
+    return this.thrown.every((g) => g.getLinearVelocity().length() < TURN.stopSpeed);
+  }
+
   nextTurn() {
+    // L'ultimo pacco deve essere fermo prima del riepilogo: una consegna tardiva deve contare.
+    if (this.giftsLeft === 0 && !this.giftsResting()) return;
     this.current = null;
     // Il livello termina solo quando non ci sono più pacchi da lanciare.
     if (this.giftsLeft === 0) {
@@ -390,7 +409,7 @@ export class Game {
       thrown: this.stats.shots,
       deliveryScore: this.deliveryScore,
       ice: this.fracture.broken,
-      iceScore: this.fracture.broken * SCORE.icePerBreak,
+      iceScore: this.breakScore,
       crystals: this.crystals,
       crystalScore: this.crystals * SCORE.crystal,
       bonus: this.bonus,
@@ -423,9 +442,9 @@ export class Game {
         const c = centroid(pc);
         const local = pc.map((q) => ({ x: q.x - c.x, y: q.y - c.y }));
         const shard = createIceBody(this.pw, local, p.x + c.x, p.y + c.y, 0, 2, true, 'glass');
-        shard.setLinearVelocity(new Vec2(vx * 0.35 + (Math.random() - 0.5) * 2, vy * 0.35 + Math.random() * 1.5));
-        shard.setAngularVelocity((Math.random() - 0.5) * 10);
-        shard.getUserData().life = GLASS.shardLife + Math.random();
+        shard.setLinearVelocity(new Vec2(vx * 0.35 + (random() - 0.5) * 2, vy * 0.35 + random() * 1.5));
+        shard.setAngularVelocity((random() - 0.5) * 10);
+        shard.getUserData().life = GLASS.shardLife + random();
         this.slabs.push(shard);
       }
       this.particles.burst(p.x, p.y, 16, 3.5, '#dff6ff');
@@ -439,12 +458,16 @@ export class Game {
 
   deliver(body, house, zone) {
     const p = body.getPosition();
-    this.deliveryScore += zone.points;
-    this.deliveries.push({ type: zone.type, points: zone.points });
+    const pts = zone.points;
+    this.deliveryScore += pts;
+    this.deliveries.push({ type: zone.type, points: pts });
+    // La prossima consegna nella stessa apertura vale meno (arrotondata a 10)
+    zone.count++;
+    zone.points = Math.max(10, Math.round((zone.base * SCORE.repeat ** zone.count) / 10) * 10);
     house.served++;
     this.deliveredThisTurn = true;
     zone.glow = 1.6;
-    this.floaters.push({ text: `+${zone.points}`, x: p.x, y: p.y + 0.6, t: 0, big: zone.type === 'chimney' });
+    this.floaters.push({ text: `+${pts}`, x: p.x, y: p.y + 0.6, t: 0, big: zone.type === 'chimney' });
     this.particles.burst(p.x, p.y, 18, 3, '#ffd36b');
     this.pw.destroyBody(body);
     if (body === this.current) this.current = null;
@@ -507,7 +530,8 @@ export class Game {
     } else if (this.state === 'settle') {
       // Dopo una consegna la camera resta un attimo sulla casa per godersi i punti.
       const minSettle = this.deliveredThisTurn ? TURN.deliveryLinger : 0;
-      if (this.stateTime > minSettle && (this.pw.counts().awake === 0 || this.stateTime > TURN.maxSettle)) this.nextTurn();
+      const calm = this.pw.counts().awake === 0 || this.stateTime > TURN.maxSettle;
+      if (this.stateTime > minSettle && calm && this.giftsResting()) this.nextTurn();
     }
   }
 

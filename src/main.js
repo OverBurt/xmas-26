@@ -1,5 +1,5 @@
 import { Box, Vec2 } from 'planck';
-import { VIEW_W, VIEW_H, MAX_DPR } from './config.js';
+import { VIEW_W, VIEW_H, MAX_DPR, SLING } from './config.js';
 import { startLoop } from './core/loop.js';
 import { attachInput } from './core/input.js';
 import { setupFullscreen } from './core/fullscreen.js';
@@ -170,7 +170,7 @@ startLoop({
 function shotParams(g, angle, pull) {
   const dx = -Math.cos(angle) * pull;
   const dy = -Math.sin(angle) * pull;
-  return { x: g.sling.x + dx, y: g.sling.y + dy, vx: -dx * 11, vy: -dy * 11 };
+  return { x: g.sling.x + dx, y: g.sling.y + dy, vx: -dx * SLING.power, vy: -dy * SLING.power };
 }
 function sim(type, angle, pull) {
   const g = new Game(game.level);

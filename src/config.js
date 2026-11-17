@@ -14,7 +14,7 @@ export const CAMERA = {
   lookAhead: 0.25, // secondi di anticipo sulla velocità del pacco
   flightViewW: 30, // zoom durante il volo
   followMarginTop: 2.5, // spazio sopra il pacco inseguito (m)
-  pullZoomOut: 7, // metri di zoom-out extra a tensione massima
+  pullZoomOut: 12, // metri di zoom-out extra a tensione massima (parabole alte sopra le torri)
   aimBehind: 1.2, // durante la mira: margine a sinistra oltre la tensione massima, dietro la fionda
 };
 
@@ -51,14 +51,21 @@ export const SNOW = {
   density: 0.55,
   friction: 0.9,
   restitution: 0.02,
-  breakImpulse: 0.7, // impulso per rompere un blocco intero
-  levelFactor: 1.3, // le zolle richiedono un colpo più forte
+  breakImpulse: 0.4, // impulso per rompere un blocco intero (neve fragile: si frantuma facilmente)
+  levelFactor: 1.15, // le zolle richiedono un colpo un po' più forte
   debrisArea: 0.07, // zolle più piccole (m²) si sbriciolano da sole dopo poco
   debrisLife: 1.4,
   kick: 0.35, // separazione delle zolle (m/s): la neve non "esplode" come il ghiaccio
   absorb: 0.8, // velocità residua del pacco dopo aver sfondato un blocco
-  groundFactor: 0.2, // cadendo a terra la soglia di rottura è il 20%: un mattone si rompe già da ~40–50 cm
-  brick: { w: 0.7, h: 0.38 }, // mattoni del fortino
+  groundFactor: 0.15, // cadendo a terra la soglia di rottura è il 15%: un mattone si rompe già da poche decine di cm
+  brick: { w: 0.7, h: 0.38 }, // mattoni del fortino (merli e muro semplice)
+  longBrick: 1.4, // lunghezza dei mattoni nelle file sopra gli archi dei fortini ad arcate (meno pezzi)
+  /**
+   * Torri a più piani: moltiplicatore di densità per piano (dal basso). Neve compattata alla base,
+   * fresca in cima: il peso grava sui pezzi robusti (pile più stabili) e la cima cade più facilmente.
+   * Anche la soglia di rottura scala con la densità.
+   */
+  storeyDensity: [1.5, 1.0, 0.7],
 };
 
 /** Albero con chioma di cristalli di neve (variante al fortino). */
@@ -70,6 +77,23 @@ export const TREE = {
   fallSpeed: 0.9, // velocità di caduta "a foglia" (m/s)
   airDrag: 3, // quanto in fretta il cristallo rallenta fino alla caduta lenta
   fallLife: 3, // secondi prima di svanire
+  trunkSway: 0.4, // ampiezza (m) della sinuosità del tronco
+  branchBend: 0.45, // curvatura massima (m) dei rami principali; i rametti la metà
+  branchWiggle: 0.12, // ondulazione secondaria (m) lungo i rami
+  /**
+   * Forme dei cristalli e loro frequenza relativa. Gocce e stalattiti pendono sotto i rami,
+   * i cuscinetti di neve stanno sopra, le altre forme ai lati.
+   */
+  shapes: { fiocco: 3, stella: 1.5, gemma: 1.2, esagono: 1, goccia: 1.5, stalattite: 2, neve: 1.5 },
+  heavyFall: 3.5, // gocce e stalattiti cadono dritte, più veloci (× fallSpeed)
+};
+
+/** Pini innevati (ostacoli solidi e cornice ai bordi del livello). */
+export const PINE = {
+  h: 5.2, // altezza totale (m)
+  width: 0.62, // larghezza della base dei rami in rapporto all'altezza
+  trunkW: 0.34,
+  trunkH: 0.9,
 };
 
 /** Pupazzi di neve: corpo unico finché un colpo non li separa in palle che rotolano. */
@@ -95,6 +119,7 @@ export const FRACTURE = {
   levelFactor: 1.4, // ogni livello richiede un impulso più forte
   minLength: 0.45, // pezzi più corti non si rompono più
   maxBodies: 130, // budget di corpi dinamici: oltre, le rotture vengono saltate
+  maxPerStep: 6, // rotture applicate per step fisico; le altre aspettano lo step dopo (crolli senza scatti)
   minImpactSpeed: 0.6, // m/s: sotto questa velocità d'impatto nulla si rompe (pile che si assestano)
   debrisArea: 0.05, // pezzi più piccoli (m²) svaniscono dopo qualche secondo
   debrisLife: 3,
@@ -118,11 +143,34 @@ export const SLING = {
   armRadius: 0.9, // trascinando un pacco entro questa distanza si arma e si passa a mirare
   maxPull: 2.2, // tensione massima (m)
   power: 11, // velocità = tensione * power  → max ~24 m/s
+  /**
+   * Corsa del dito per la tensione massima (px logici, vista 1280×600): più lunga della tensione disegnata,
+   * così ogni pixel di dito sposta meno il tiro (sull'S21 ~120 px CSS). Oltre ~200 il dito esce in basso
+   * nei pallonetti.
+   */
+  strokePx: 190,
+  /**
+   * Risposta dolce: tensione = t·(1−soft) + soft·(1−(1−t)²), con t = frazione della corsa.
+   * Vicino al massimo la tensione cresce a (1−soft) della velocità lineare: mira più fine sui tiri potenti.
+   */
+  soft: 0.5,
+  minTension: 0.12, // sotto questa tensione il rilascio annulla il tiro
 };
 
-/** Punteggio (le consegne valgono quanto indicato nel JSON del livello). */
+/**
+ * Punteggio. Le consegne valgono quanto scritto nel JSON del livello, generato da `node tools/sim/score.mjs <livello>`
+ * con una formula unica per tutte le aperture (solo difficoltà misurata, neve sulle aperture compresa):
+ * punti = refPoints · (refHits / tiri validi)^exponent, arrotondati a 50, tra minPoints e maxPoints;
+ * tiri validi = consegne su 3 pacchi × 546 tiri della griglia, con la neve al suo posto.
+ */
 export const SCORE = {
-  icePerBreak: 10,
+  refHits: 60,
+  refPoints: 1000,
+  exponent: 0.75,
+  minPoints: 100,
+  maxPoints: 3000,
+  repeat: 0.6, // ogni nuova consegna nella stessa apertura vale il 60% della precedente
+  perArea: 15, // punti per m² di neve/ghiaccio rotto (un mattone 0.7×0.38 ≈ 4 punti, un blocco cavo grande ≈ 45)
   crystal: 2, // per ogni cristallo staccato dall'albero
   allServedBonus: 1500, // premio se tutte le case ricevono almeno un pacco
 };
@@ -138,11 +186,12 @@ export const TURN = {
   minFlight: 1,
   stopSpeed: 0.3, // pacco "fermo" sotto questa velocità
   maxSettle: 4, // attesa massima che la scena si fermi
+  maxGiftWait: 10, // attesa massima che i pacchi lanciati si fermino (poi si va avanti comunque)
   deliveryLinger: 1.6, // dopo una consegna la camera resta sulla casa
   panReturn: 2, // dopo un pan manuale la camera torna alla fionda
 };
 
 export const TRAJECTORY = {
-  steps: 90, // passi di simulazione (1.5 s)
-  dotEvery: 3,
+  steps: 330, // passi di simulazione (5.5 s): l'arco intero fino al terreno; il livello ne mostra la frazione `preview`
+  dotEvery: 4,
 };

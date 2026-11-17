@@ -21,9 +21,9 @@
   ],
   "preview": 1.0,
   "stars": [
-    1500,
-    3000,
-    4500
+    1800,
+    3500,
+    5500
   ],
   "camera": {
     "aimCenter": 11,
@@ -49,7 +49,7 @@
         {
           "y": 2.75,
           "h": 1.95,
-          "points": 400
+          "points": 1050
         }
       ],
       "chimney": {
@@ -58,7 +58,7 @@
         "top": 1.8,
         "h": 1.6,
         "tilt": 12,
-        "points": 1000
+        "points": 900
       },
       "snowCap": true
     },
@@ -70,13 +70,13 @@
       "lean": 0.6,
       "door": {
         "h": 2.1,
-        "points": 150
+        "points": 200
       },
       "windows": [
         {
           "y": 2.45,
           "h": 1.65,
-          "points": 600
+          "points": 1500
         }
       ],
       "chimney": {
