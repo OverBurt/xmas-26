@@ -39,7 +39,7 @@ canvas#game {
 
 #hud {
   position: absolute;
-  top: 80px;
+  top: 108px;
   left: 10px;
   font-size: 11px;
   pointer-events: none;
@@ -49,24 +49,25 @@ canvas#game {
 
 #controls {
   position: absolute;
-  top: 8px;
-  right: 10px;
+  top: 10px;
+  right: 12px;
   display: flex;
   gap: 6px;
 }
 
+/* Pulsanti a pillola, come le etichette disegnate nel canvas */
 #controls button {
-  font: inherit;
-  color: inherit;
-  background: rgba(20, 30, 70, 0.8);
-  border: 1px solid #3c4a8a;
-  border-radius: 8px;
-  padding: 6px 10px;
+  font: 600 14px/1 ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif;
+  color: #fff;
+  background: rgba(9, 13, 42, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 10px 16px;
   cursor: pointer;
   touch-action: manipulation;
 }
 
-#controls button:active { background: #3c4a8a; }
+#controls button:active { background: rgba(60, 74, 138, 0.9); }
 
 #rotate {
   display: none;

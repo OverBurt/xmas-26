@@ -1,50 +1,80 @@
+import { GFX } from '../config.js';
 import { side } from '../entities/snowTree.js';
+import { X, Y, S, V, seeded, spess, coppie, makeSprite, blit } from './view.js';
+import { palla } from './snow.js';
+
+const C = GFX.colors;
 
 /**
- * Disegno dell'albero di cristalli: tronco e rami come nastri rastremati che seguono le curve,
- * cristalli di sette forme raggruppati per tipo (un tracciato per forma), cristalli che cadono.
+ * Albero di cristalli: tronco e rami (nastri rastremati color prugna col contorno scuro) stanno in uno sprite in cache,
+ * perché non cambiano mai; i cristalli di sette forme si disegnano a ogni frame, un tracciato per forma.
  */
 
-const BARK = '#4a3326';
-const BARK_LIGHT = '#6b4a38';
-
-/** Stile di ogni forma: riempimento e/o contorno. */
+/** Stile di ogni forma: riempimento e/o contorno. La stella è l'unica forma calda. */
 const STYLE = {
-  fiocco: { stroke: '#e8f6ff', thick: true },
-  stella: { fill: '#f6fbff' },
-  gemma: { fill: 'rgba(150,225,255,0.75)', stroke: '#eaffff' },
-  esagono: { fill: 'rgba(200,240,255,0.35)', stroke: '#dff6ff' },
-  goccia: { fill: 'rgba(160,220,255,0.7)', stroke: '#f2fbff' },
-  stalattite: { fill: 'rgba(185,235,255,0.8)', stroke: '#f0fcff' },
-  neve: { fill: '#f7fbff', stroke: 'rgba(150,180,225,0.7)' },
+  fiocco: { stroke: '#f2f9ff', thick: true },
+  stella: { fill: '#fff6cf', stroke: '#ffd36b' },
+  gemma: { fill: 'rgba(143,233,255,0.85)', stroke: '#eafcff' },
+  esagono: { fill: 'rgba(190,236,255,0.4)', stroke: '#dff6ff' },
+  goccia: { fill: 'rgba(120,205,255,0.8)', stroke: '#f2fbff' },
+  stalattite: { fill: 'rgba(170,230,255,0.85)', stroke: '#f0fcff' },
+  neve: { fill: '#ffffff', stroke: '#8ea3dc' },
 };
 const ORDER = ['neve', 'stalattite', 'goccia', 'esagono', 'gemma', 'stella', 'fiocco'];
 
-export function drawTree(ctx, t, px) {
-  // Tronco e rami: un solo riempimento (si sovrappongono nello stesso colore)
-  ctx.fillStyle = BARK;
-  ctx.beginPath();
-  ribbon(ctx, t.trunk, true); // punta arrotondata, come i rami
-  for (const b of t.branches) ribbon(ctx, b, true);
-  ctx.fill();
+/** Porta il contesto dai pixel della vista alle coordinate mondo (metri, y verso l'alto). */
+function mondo(ctx) {
+  ctx.translate(X(0), Y(0));
+  ctx.scale(V.ppm, -V.ppm);
+}
 
-  // Riflesso chiaro lungo il lato sinistro del tronco (corteccia)
-  ctx.strokeStyle = BARK_LIGHT;
-  ctx.lineWidth = Math.max(px, (t.def.trunkW ?? 0.7) * 0.1);
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  const n = t.trunk.pts.length;
-  for (let i = 1; i < n - 3; i++) {
-    const { l } = side(t.trunk, i);
-    const c = t.trunk.pts[i];
-    const x = c.x + (l.x - c.x) * 0.55;
-    const y = c.y + (l.y - c.y) * 0.55;
-    if (i === 1) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+/** Sprite di tronco e rami (creato a ogni nuova partita: l'albero cambia forma). */
+export function buildTreeSprite(t, ppm) {
+  let x0 = 1e9, y0 = 0, x1 = -1e9, y1 = -1e9;
+  for (const cv of [t.trunk, ...t.branches]) for (const p of cv.pts) {
+    x0 = Math.min(x0, p.x);
+    x1 = Math.max(x1, p.x);
+    y1 = Math.max(y1, p.y);
   }
-  ctx.stroke();
+  const m = (t.def.trunkW ?? 0.7) + 0.2;
+  return makeSprite(x0 - m, y0 - 0.05, x1 + m, y1 + 0.3, ppm, (c) => {
+    const u = 1 / V.ppm;
+    c.save();
+    mondo(c);
+    c.lineJoin = 'round';
+    c.beginPath();
+    ribbon(c, t.trunk, true); // punta arrotondata, come i rami
+    for (const b of t.branches) ribbon(c, b, true);
+    c.strokeStyle = C.contorno;
+    c.lineWidth = 2.6 * u;
+    c.stroke();
+    c.fillStyle = C.corteccia;
+    c.fill();
+    // Luce lungo il lato sinistro del tronco
+    c.strokeStyle = C.corteccia2;
+    c.lineWidth = Math.max(u, (t.def.trunkW ?? 0.7) * 0.12);
+    c.lineCap = 'round';
+    c.beginPath();
+    const n = t.trunk.pts.length;
+    for (let i = 1; i < n - 3; i++) {
+      const { l } = side(t.trunk, i);
+      const p = t.trunk.pts[i];
+      const x = p.x + (l.x - p.x) * 0.5;
+      const y = p.y + (l.y - p.y) * 0.5;
+      if (i === 1) c.moveTo(x, y);
+      else c.lineTo(x, y);
+    }
+    c.stroke();
+    c.restore();
+  });
+}
 
-  // Cristalli ancora attaccati, raggruppati per forma
+/** Albero a ogni frame: sprite di tronco e rami, poi i cristalli attaccati e quelli che cadono. */
+export function drawTree(ctx, t, sprite) {
+  blit(ctx, sprite);
+  const px = 1 / V.ppm;
+  ctx.save();
+  mondo(ctx);
   for (const shape of ORDER) {
     ctx.beginPath();
     let any = false;
@@ -55,7 +85,6 @@ export function drawTree(ctx, t, px) {
     }
     if (any) paint(ctx, shape, px);
   }
-
   // Cristalli che cadono (svaniscono nell'ultimo tratto)
   for (const c of t.falling) {
     ctx.globalAlpha = Math.min(1, c.life / 0.8);
@@ -64,10 +93,19 @@ export function drawTree(ctx, t, px) {
     paint(ctx, c.shape, px);
   }
   ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 function paint(ctx, shape, px) {
   const st = STYLE[shape];
+  if (shape === 'neve') { // cuscinetto di neve: prima il contorno, poi il bianco (niente righe tra i lobi)
+    ctx.strokeStyle = st.stroke;
+    ctx.lineWidth = Math.max(2 * px, 0.03);
+    ctx.stroke();
+    ctx.fillStyle = st.fill;
+    ctx.fill();
+    return;
+  }
   if (st.fill) {
     ctx.fillStyle = st.fill;
     ctx.fill();
@@ -212,39 +250,49 @@ const SHAPES = {
   },
 };
 
-/** Pino innevato: tronco, tre piani di rami verde scuro, neve sui bordi superiori di ogni piano. */
-export function drawPine(ctx, p, px) {
-  ctx.fillStyle = '#4a3326';
-  fillPts(ctx, p.trunk);
-  p.tiers.forEach((t, i) => {
-    ctx.fillStyle = i % 2 ? '#1f5a45' : '#235f4a';
-    fillPts(ctx, t);
-    // neve: fascia lungo i due lati superiori, con un bordo ondulato sotto
-    const [a, b, c] = t;
-    const k = 0.42; // quanto scende la neve lungo i lati
-    const l = { x: c.x + (a.x - c.x) * k, y: c.y + (a.y - c.y) * k };
-    const r = { x: c.x + (b.x - c.x) * k, y: c.y + (b.y - c.y) * k };
-    ctx.fillStyle = '#eef5ff';
-    ctx.beginPath();
-    ctx.moveTo(c.x, c.y);
-    ctx.lineTo(r.x, r.y);
-    const n = 4;
-    for (let j = 1; j <= n; j++) {
-      const x = r.x + ((l.x - r.x) * j) / n;
-      const y = r.y + ((l.y - r.y) * j) / n;
-      const mx = r.x + ((l.x - r.x) * (j - 0.5)) / n;
-      const my = r.y + ((l.y - r.y) * (j - 0.5)) / n;
-      ctx.quadraticCurveTo(mx, my - (c.y - l.y) * 0.18, x, y);
+/** Pino di gioco: il corpo fisico (tronco + tre triangoli) non cambia; dentro quella sagoma ogni pino, dal suo seme, è diverso. */
+function pino(c, G, seme = 1) {
+  const R = seeded(seme * 7919 + 13), r = (a, b) => a + R() * (b - a), L = spess(), [v1, v2] = C.verdi[seme % C.verdi.length];
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  const [tx0, ty0] = G.tronco[0], tx1 = G.tronco[1][0], ty1 = G.tronco[2][1], st = r(-0.07, 0.07);
+  c.beginPath(); c.moveTo(X(tx0 - 0.05), Y(ty0)); c.quadraticCurveTo(X(tx0 + st), Y((ty0 + ty1) / 2), X(tx0 + 0.02), Y(ty1)); c.lineTo(X(tx1 - 0.02), Y(ty1)); c.quadraticCurveTo(X(tx1 + st), Y((ty0 + ty1) / 2), X(tx1 + 0.05), Y(ty0)); c.closePath();
+  c.fillStyle = C.corteccia; c.fill(); c.strokeStyle = C.contorno; c.lineWidth = L; c.stroke();
+  const piega = r(-0.2, 0.2);
+  G.piani.forEach(([a, b, t], i) => {
+    const half = (b[0] - a[0]) / 2, hh = t[1] - a[1];
+    const tip = i === 2 ? [t[0] + piega, t[1] - 0.02] : [t[0] + r(-0.06, 0.06), t[1]];
+    const A = [a[0] + r(0, 0.12), a[1] + r(0, 0.16)], B = [b[0] - r(0, 0.12), b[1] + r(0, 0.16)]; // punte rientrate e rialzate
+    const cl = r(0.2, 0.58), cr = r(0.2, 0.58), n = 3 + Math.floor(R() * 3), larg = [], prof = [];
+    let tot = 0; for (let j = 0; j < n; j++) { const w = r(0.6, 1.4); larg.push(w); tot += w; prof.push(r(0.12, 0.36)); }
+    const trac = () => {
+      c.beginPath(); c.moveTo(X(tip[0]), Y(tip[1]));
+      c.quadraticCurveTo(X(t[0] + half * cr), Y(a[1] + hh * 0.36), X(B[0]), Y(B[1]));
+      let xx = B[0], yy = B[1]; // orlo a ciuffi irregolari, sempre dentro il triangolo
+      for (let j = 0; j < n; j++) { const nx = j === n - 1 ? A[0] : xx - ((B[0] - A[0]) * larg[j]) / tot, ny = j === n - 1 ? A[1] : a[1] + prof[j] * 0.22; c.quadraticCurveTo(X((xx + nx) / 2), Y(Math.max(yy, ny) + prof[j]), X(nx), Y(ny)); xx = nx; yy = ny; }
+      c.quadraticCurveTo(X(t[0] - half * cl), Y(a[1] + hh * 0.36), X(tip[0]), Y(tip[1])); c.closePath();
+    };
+    const g = c.createLinearGradient(X(a[0]), 0, X(b[0]), 0); g.addColorStop(0, v1); g.addColorStop(1, v2);
+    trac(); c.fillStyle = g; c.fill();
+    c.save(); c.clip();
+    c.fillStyle = 'rgba(0,18,40,0.22)'; c.fillRect(X(a[0]), Y(a[1] + hh * 0.2), S(half * 2), S(hh * 0.2)); // ombra sotto i rami
+    // neve: quanto scende su ciascun lato cambia da piano a piano
+    const kl = R() < 0.2 ? 0.1 : r(0.25, 0.72), kr = R() < 0.2 ? 0.1 : r(0.25, 0.72);
+    const l = [tip[0] + (A[0] - tip[0]) * kl - 0.3, tip[1] + (A[1] - tip[1]) * kl], q = [tip[0] + (B[0] - tip[0]) * kr + 0.3, tip[1] + (B[1] - tip[1]) * kr];
+    const gd = [0, 1, 2, 3].map(() => (R() < 0.22 ? r(0.3, 0.42) : r(0.08, 0.2))); // festoni: qualcuno scende a colatura
+    for (const [col, dy] of [[C.neveFascia, -0.1], [C.neve, 0]]) {
+      c.fillStyle = col; c.beginPath(); c.moveTo(X(tip[0]), Y(tip[1] + 0.4)); c.lineTo(X(q[0]), Y(q[1] + dy));
+      for (let j = 1; j <= 4; j++) c.quadraticCurveTo(X(q[0] + ((l[0] - q[0]) * (j - 0.5)) / 4), Y(q[1] + ((l[1] - q[1]) * (j - 0.5)) / 4 + dy - hh * gd[j - 1]), X(q[0] + ((l[0] - q[0]) * j) / 4), Y(q[1] + ((l[1] - q[1]) * j) / 4 + dy));
+      c.closePath(); c.fill();
     }
-    ctx.closePath();
-    ctx.fill();
+    c.restore();
+    trac(); c.strokeStyle = C.contorno; c.lineWidth = L; c.stroke();
+    if (R() < 0.55) { const s = R() < 0.5 ? A : B; palla(c, X(s[0] + (s === A ? 0.16 : -0.16)), Y(s[1] + 0.1), S(r(0.09, 0.13))); } // grumo di neve su una punta
   });
 }
 
-function fillPts(ctx, pts) {
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-  ctx.closePath();
-  ctx.fill();
+/** Sprite di un pino di gioco, generato dal suo seme (uno per pino, creato al caricamento del livello). */
+export function buildPineSprite(p, seme, ppm) {
+  const G = { tronco: coppie(p.trunk), piani: p.tiers.map(coppie) };
+  const half = (G.piani[0][1][0] - G.piani[0][0][0]) / 2;
+  return makeSprite(p.x - half - 0.45, p.g - 0.05, p.x + half + 0.45, p.g + p.h + 0.25, ppm, (c) => pino(c, G, seme));
 }

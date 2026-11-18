@@ -5,9 +5,11 @@ import { attachInput } from './core/input.js';
 import { setupFullscreen } from './core/fullscreen.js';
 import { Game } from './game/game.js';
 import { drawScene } from './render/sceneDraw.js';
+import { quality, initQuality, sampleQuality } from './render/quality.js';
 import { LEVELS, findLevel } from './game/levels/index.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
+initQuality(new URLSearchParams(location.search)); // ?qualita=alta|media|bassa fissa il livello grafico
 if (DEBUG) document.body.classList.add('debug');
 
 // ---------- Canvas e riquadro con proporzioni da smartphone orizzontale ----------
@@ -27,7 +29,7 @@ function resize() {
   const cssH = Math.floor(VIEW_H * s);
   frame.style.width = `${cssW}px`;
   frame.style.height = `${cssH}px`;
-  const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+  const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR, quality.tier.dpr);
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
   pixelScale = canvas.width / VIEW_W;
@@ -146,17 +148,33 @@ window.addEventListener('keydown', (e) => {
 
 // ---------- Loop ----------
 let hudTimer = 0;
+/** Misure del disegno (debug e prove): medie da azzerare a mano con `xmas.perf.reset()`. */
+const perf = {
+  frames: 0,
+  renderMs: 0, // somma dei tempi di disegno
+  worstMs: 0, // disegno più lento
+  worstFrameMs: 0, // intervallo più lungo tra due frame
+  reset() { this.frames = 0; this.renderMs = 0; this.worstMs = 0; this.worstFrameMs = 0; },
+};
 startLoop({
   update: (dt) => game.step(dt),
   render(alpha, elapsed, stats) {
     game.frame(elapsed);
     ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
-    drawScene(ctx, game, alpha);
+    const t0 = performance.now();
+    drawScene(ctx, game, alpha, { debug: DEBUG });
+    const ms = performance.now() - t0;
+    perf.frames++;
+    perf.renderMs += ms;
+    if (ms > perf.worstMs) perf.worstMs = ms;
+    if (elapsed * 1000 > perf.worstFrameMs) perf.worstFrameMs = elapsed * 1000;
+    // Qualità automatica: si scende di livello solo a scena ferma (mai durante un volo)
+    if (sampleQuality(elapsed, game.state === 'ready' || game.state === 'end')) resize();
 
     if (!DEBUG || (hudTimer += 1) % 15 !== 0) return;
     const c = game.pw.counts();
     hud.textContent =
-      `FPS ${stats.fps} · fisica ${stats.physicsMs.toFixed(2)} ms · canvas ${canvas.width}×${canvas.height}\n` +
+      `FPS ${stats.fps} · fisica ${stats.physicsMs.toFixed(2)} ms · disegno ${(perf.renderMs / Math.max(1, perf.frames)).toFixed(2)} ms (max ${perf.worstMs.toFixed(1)}) · ${quality.nome} · canvas ${canvas.width}×${canvas.height}\n` +
       `corpi ${c.dynamic} · svegli ${c.awake} · stato ${game.state} · lanci ${game.stats.shots}\n` +
       `impulso max ultimo lancio ${game.stats.maxImpulse.toFixed(2)}`;
   },
@@ -192,4 +210,4 @@ function findShot(type, zone, a0 = 0.1, a1 = 1.35, p0 = 1.2, p1 = 2.2) {
 }
 
 // Accesso da console/DevTools per test e taratura.
-window.xmas = { game, wakeAll, stress, sim, fire, findShot };
+window.xmas = { game, wakeAll, stress, sim, fire, findShot, perf, quality };

@@ -27,7 +27,7 @@ snow and ice that break realistically. A parcel is delivered (and scores points)
 | M3 houses, deliveries, scoring, end of level | ✅ also on the phone (before the later iterations) |
 | Obstacle iterations (snow, tree, arches, ice sculptures, igloo) | ✅ on desktop only |
 | Opening camera sequence, level selector | ✅ (part of M5 brought forward) |
-| **M4 setting** (sky, moon, stars, parallax, mountains, falling snow, drawn houses) | ❌ to do — graphics are still **provisional** (flat shapes on a grid) |
+| **M4 setting** (direction A "Notte di velluto": parallax backdrop, cartoon houses with three rooms, snow caps, falling snow, HUD, quality tiers) | ✅ on desktop Chrome only — **not measured on the phone** |
 | **M5 direction and UX** (audio, "Buone Feste" end screen, HUD, progression between levels) | 🟡 partial |
 | **M6 polish** (quality tiers, offline PWA, iOS tests, HTTPS publishing) | ❌ |
 | Level 3 "La tormenta" (chairlift + wind) | ❌ only proposed |
@@ -117,9 +117,20 @@ src/
 │  ├─ game.js            the whole game: level construction, state machine, input, glass, deliveries, scoring, intro
 │  └─ levels/*.json + index.js
 └─ render/
-   ├─ sceneDraw.js       provisional drawing of everything (grid, bodies, houses, tree, sleigh, slingshot, HUD, labels, end panel, intro title)
-   ├─ treeDraw.js        tree drawing: tapered ribbons for trunk/branches, crystal shapes batched by type
-   └─ particles.js       pool of non-physical particles (shards, snow powder, sparks)
+   ├─ sceneDraw.js       orchestrator: builds the caches (per level + quality, per match) and draws the frame in order
+   ├─ view.js            current view (X/Y/S metres→pixels), sprites (makeSprite/blit/blitAt), path helpers, seeded rng
+   ├─ quality.js         quality tier (alta/media/bassa), automatic step-down, `?qualita=` override
+   ├─ backdrop.js        offscreen parallax: sky+moon+stars, far/mid mountains, soft hills, town skyline, tall pines; twinkling stars
+   ├─ terrainDraw.js     sinuous ground (per frame, visible span only), hill sprites, stones
+   ├─ houseDraw.js       house sprite (three rooms, curved walls and chimney, snow-cap roof); per frame: panes, delivery glow
+   ├─ snow.js            materials: cartoon snow blocks, the "cappello" snow cap, ice
+   ├─ bodiesDraw.js      dynamic bodies: snow/ice sprites per intact body, direct drawing for fragments, glass shards, snowmen, gifts
+   ├─ propsDraw.js       gift sprites, sleigh sprite, slingshot, snowman balls, decorations (lamp post, signpost, bushes, sled)
+   ├─ treeDraw.js        crystal tree (trunk sprite + crystals batched by shape) and seeded game pines
+   ├─ reindeerDraw.js    reindeer and their scare reaction (draws in world coordinates)
+   ├─ weather.js         falling snow (screen-space pool), chimney smoke
+   ├─ hudDraw.js         HUD, point labels, floating points, intro title, end panel, trajectory dots
+   └─ particles.js       pool of non-physical particles in three shapes (snow dust, shards, sparks), batched by shape and opacity
 tools/phone/             tests on an Android phone via adb (see above)
 docs/GDD.md              design + chronological history of the iterations with measurements
 ```
@@ -199,7 +210,7 @@ docs/GDD.md              design + chronological history of the iterations with m
 
 ## 8. Known issues / open questions
 
-- **Graphics**: everything is still provisional (grid, flat shapes, square particles). The houses are drawn as solid shapes without details.
+- **Graphics (M4)**: done in direction A, verified only in desktop Chrome (headless). To check on the phone: FPS during a collapse, memory of the parallax layers (about 30 MB at tier alta), the automatic quality step-down. Text uses system rounded fonts only (`GFX.font`): on devices without one it falls back to the system sans. The drawing deliberately exceeds the physical polygons in a few places (roof snow ~11 cm above the slope and up to 35 cm below the eaves, gift bows, snowman hats): see GDD.
 - **Untested on the phone** since "La collina" onwards (snow, igloo, ice sculptures, glass, intro, chimney edge). Measure FPS during the big collapses (peak ~110 bodies).
 - **Star thresholds** were raised with the new scoring but are provisional: tune them by playing.
 - Collapse spike solved by the simpler forts (peak 101 bodies, worst frame 9 ms on desktop); still to measure on the phone.
@@ -211,7 +222,7 @@ docs/GDD.md              design + chronological history of the iterations with m
 ## 9. Recommended next steps
 
 1. **Phone test** of the current state (all 3 levels; FPS during collapses; gestures; intro; selector).
-2. **M4 setting** (GDD §3 and §5): night-blue gradient sky, bright moon and stars (a few twinkling), parallax on 3+ levels of snowy mountains and hills pre-rendered offscreen, falling snow (pool of particles), houses drawn "in cross-section" with a warm-lit interior, cartoon-style roofs loaded with snow, illuminated windows; snow drawn soft (lumps with rounded edges, white powder instead of squares), ice with reflections; the sleigh and slingshot styled. Keep it light: offscreen layers, DPR ≤ 2, automatic quality tiers.
+2. **M4 setting**: implemented (see GDD, "M4 «ambientazione»"). Left to do: phone measurements and tuning of `GFX.tiers`/`GFX.auto`; user's choices still open: bundled rounded web font or system fonts, optional foreground layer (advised against), minimal reindeer idle animation already in place.
 3. **M5**: Web Audio (band tension, launch, ice/glass/snow, delivery chimes, music loop with mute), "Buone Feste" end screen, progression to the next level, total stars.
 4. **Level 3 "La tormenta"**: proposed with a swinging chairlift (Planck joints) and wind that pushes the parcel; to be agreed with the user.
 5. **M6**: quality tiers, offline service worker, publishing over HTTPS (installable PWA), iOS test.

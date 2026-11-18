@@ -205,3 +205,58 @@ export const TRAJECTORY = {
   steps: 330, // passi di simulazione (5.5 s): l'arco intero fino al terreno; il livello ne mostra la frazione `preview`
   dotEvery: 4,
 };
+
+/**
+ * Grafica (M4, direzione "Notte di velluto"). Solo disegno: nessun effetto su fisica, regole e punteggi.
+ * Colori, piani del parallasse e livelli di qualità stanno qui; il disegno è in `src/render/`.
+ */
+export const GFX = {
+  /** Carattere tondo dei testi a schermo: solo caratteri di sistema (nessun download, funziona offline). */
+  font: 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif',
+  /** Larghezza di vista (m) a cui sono disegnati i piani dello sfondo: a questo zoom la loro scala è 1. */
+  refViewW: 34,
+  /**
+   * Piani del parallasse, dal più lontano. `f` = frazione dello scorrimento della camera;
+   * `zoom` = quanto il piano segue lo zoom della camera (0 = scala fissa, 1 = come il piano di gioco).
+   */
+  parallax: {
+    lontane: { f: 0.04, zoom: 0.06 }, // montagne lontane
+    medie: { f: 0.08, zoom: 0.12 }, // montagne medie
+    colline: { f: 0.14, zoom: 0.2 }, // colline morbide
+    paese: { f: 0.4, zoom: 0.45 }, // profilo della città
+    pini: { f: 0.58, zoom: 0.65 }, // pini alti subito dietro la scena
+  },
+  stars: 150, // stelle fisse dipinte nel cielo
+  atlas: { size: 2048, maxSprite: 512, pad: 2 }, // atlante degli sprite piccoli (px): una sola immagine per la scheda video
+  moon: { x: 905, y: 215, r: 44 }, // luna (px logici del cielo): bassa, così le vette più alte la coprono in parte
+  /** Livelli di qualità: scelti da soli in base al tempo di frame, oppure con `?qualita=alta|media|bassa`. */
+  tiers: {
+    alta: { dpr: 2, sprite: 96, layer: 1, snow: 90, twinkle: 16, smoke: true },
+    media: { dpr: 2, sprite: 72, layer: 1, snow: 55, twinkle: 8, smoke: true },
+    bassa: { dpr: 1.5, sprite: 48, layer: 0.75, snow: 28, twinkle: 0, smoke: false },
+  },
+  // dpr = densità massima del canvas; sprite = pixel per metro degli sprite in cache; layer = densità dei piani di sfondo;
+  // snow = fiocchi che cadono; twinkle = stelle che tremolano; smoke = fumo dai camini aperti.
+  auto: {
+    warmup: 3, // secondi iniziali ignorati (caricamento, costruzione degli sprite)
+    window: 2.5, // secondi di misura prima di decidere
+    slowMs: 21, // sopra questo tempo medio tra due frame si scende di un livello
+  },
+  colors: {
+    cielo: ['#060a22', '#121a4b', '#2a2f76', '#4d4594'], luna: '#ffe7ad', stelle: '#dfe6ff',
+    monti: ['#434a96', '#343b84', '#272e6c'], cime: 'rgba(206,216,255,0.34)',
+    paese: '#1a2056', paese2: '#232b6c', paese3: '#2a3378', paeseTetto: '#151a48', paeseNeve: '#6672bd', paeseLuce: '#ffd98a',
+    piniLontani: ['#101640', '#141b4a', '#0d1236'], piniNeve: '#3a4688', collinaPini: '#12183f',
+    neve: '#ffffff', neve2: '#dfe8ff', neveFascia: '#c3d2ee', neveOmbra: '#a9bdf0', neveLinea: '#8ea3dc', neveDensa: '#7f9be0',
+    ghiaccio: '#8fe9ff', ghiaccio2: '#3aa3ea', ghiaccioBordo: '#eafcff',
+    muro: '#9a5d78', muro2: '#6f3f5a', tetto: '#59346a', tetto2: '#3f2450', camino: '#b0655a', camino2: '#7f4447',
+    interno: ['#ffe09a', '#f8a652', '#bd5a3c'], vetro: '#c9f3ff', telaio: '#f1cb93',
+    legno: '#bb7f47', legno2: '#7c4f2b', corteccia: '#4f3552', corteccia2: '#7d5a7b', elastico: '#f0553f',
+    slitta: '#e03a45', slitta2: '#a3243a', oro: '#ffd36b', oro2: '#d99a2b', verdeacqua: '#35c4a8',
+    pino: '#226a5c', pino2: '#174e4a', pietra: '#8992c4', pietra2: '#5a639b',
+    verdi: [['#226a5c', '#174e4a'], ['#2f7d58', '#1c5a46'], ['#1f6472', '#154a57'], ['#3a7a4c', '#215438'], ['#27705f', '#184f52']],
+    /** Pacchi: [carta, nastro] per tipo. */
+    pacchi: { small: ['#4fe0b5', '#ffffff'], standard: ['#ff6f61', '#ffe08a'], big: ['#ffc94a', '#d8344a'] },
+    contorno: '#1d1442', traiettoria: '#fff1c2', hud: 'rgba(9,13,42,0.66)', hudBordo: 'rgba(255,255,255,0.18)',
+  },
+};

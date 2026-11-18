@@ -25,11 +25,11 @@ import { createIceBody } from '../physics/fracture.js';
  *  chimney.bottom/top: larghezza interna alla base e in cima; tilt: gradi verso sinistra
  */
 export const WALL = 0.28;
-const EAVE = 0.35;
-const CHIMNEY_WALL = 0.14;
+export const EAVE = 0.35;
+export const CHIMNEY_WALL = 0.14;
 const ZONE_DEPTH = 0.6;
 const DOOR_REACH = 0.55; // la zona della porta sporge davanti al vetro: metà del pacco grande (0.4) + vetro + margine
-const PANE = 0.045; // mezzo spessore del vetro
+export const PANE = 0.045; // mezzo spessore del vetro
 const SKIN = 2 * Settings.polygonRadius - Settings.linearSlop; // distanza a riposo tra poligoni
 
 /** Neve che tappa un'apertura: dorme finché non viene colpita, i suoi pezzi si sciolgono presto. */
