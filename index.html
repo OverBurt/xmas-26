@@ -23,8 +23,18 @@
       <button data-action="stress" data-debug title="Tasto S">Stress +40</button>
       <button data-action="levels" title="Tasto L">Livelli</button>
       <button data-action="reset" title="Tasto R">Reset</button>
-      <button id="muto-btn" class="icona" title="Audio (tasto M)" aria-label="Audio"></button>
+      <button id="muto-btn" class="icona" title="Audio (tasto M)" aria-label="Audio" aria-controls="audio-pannello" aria-expanded="false"></button>
       <button id="fs-btn" title="Schermo intero">⛶</button>
+    </div>
+    <div id="audio-pannello" hidden>
+      <div class="riga" data-canale="musica">
+        <button class="interruttore" data-nome="Musica" aria-label="Musica accesa o spenta"></button>
+        <input type="range" min="0" max="100" step="1" aria-label="Volume della musica" />
+      </div>
+      <div class="riga" data-canale="effetti">
+        <button class="interruttore" data-nome="Effetti" aria-label="Effetti accesi o spenti"></button>
+        <input type="range" min="0" max="100" step="1" aria-label="Volume degli effetti" />
+      </div>
     </div>
     <div id="levels" hidden>
       <div class="levels-panel">

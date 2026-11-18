@@ -104,8 +104,10 @@ export function drawGround(ctx, x0, x1, sassi) {
   g.addColorStop(1, '#b6c6f0');
   ctx.fillStyle = g;
   ctx.fillRect(X(x0), Y(0), S(x1 - x0), yb - Y(0));
-  for (const [d, k, col] of [[-0.2, 0.0, 'rgba(127,155,224,0.26)'], [-0.4, 2.6, 'rgba(127,155,224,0.34)']]) {
-    const f = (x) => d + 0.085 * Math.sin(x * 0.42 + k) + 0.035 * Math.sin(x * 1.07 + k * 2.3);
+  // fasce di neve più in basso: onde lunghe e larghe, a più frequenze (GFX.terreno)
+  const T = GFX.terreno;
+  for (const [d, k, col] of [[-0.14, 0.0, 'rgba(127,155,224,0.22)'], [-0.3, 2.6, 'rgba(127,155,224,0.3)'], [-0.46, 4.1, 'rgba(110,138,214,0.34)']]) {
+    const f = (x) => d + T.fascia * (Math.sin(x * 0.45 + k) + 0.45 * Math.sin(x * 1.05 + k * 2.3) + 0.2 * Math.sin(x * 2.2 + k));
     ctx.beginPath();
     liscia(ctx, f, x0, x1, true);
     ctx.lineTo(X(x1), yb);
@@ -114,8 +116,8 @@ export function drawGround(ctx, x0, x1, sassi) {
     ctx.fillStyle = col;
     ctx.fill();
   }
-  // bordo della neve: ondulazioni piccole (fino a ~7 cm) sopra la linea d'appoggio
-  const orlo = (x) => 0.03 + 0.028 * Math.sin(x * 0.75 + 0.6) + 0.014 * Math.sin(x * 1.9 + 2);
+  // bordo della neve: cumuli morbidi sopra la linea d'appoggio (i piedi degli oggetti affondano appena nella neve)
+  const orlo = (x) => T.orlo * (0.6 + 0.55 * Math.sin(x * 0.62 + 0.6) + 0.3 * Math.sin(x * 1.37 + 2) + 0.1 * Math.sin(x * 2.9 + 1.1));
   ctx.beginPath();
   liscia(ctx, orlo, x0, x1, true);
   ctx.lineTo(X(x1), Y(-0.08));
@@ -123,5 +125,11 @@ export function drawGround(ctx, x0, x1, sassi) {
   ctx.closePath();
   ctx.fillStyle = '#ffffff';
   ctx.fill();
+  // ombra azzurra appena sotto la cresta dei cumuli: dà volume alle onde
+  ctx.beginPath();
+  liscia(ctx, (x) => orlo(x) - 0.045 - 0.02 * Math.sin(x * 0.53 + 1.4), x0, x1, true);
+  ctx.strokeStyle = 'rgba(150,172,232,0.45)';
+  ctx.lineWidth = Math.max(1, S(0.035));
+  ctx.stroke();
   for (const [sx, sy, r] of sassi) if (sy <= 0 && sx > x0 - 1 && sx < x1 + 1) sasso(ctx, sx, sy, r);
 }

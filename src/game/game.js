@@ -1,4 +1,4 @@
-import { CAMERA, SCORE, TURN, FAST } from '../config.js';
+import { CAMERA, SCORE, TURN } from '../config.js';
 import { Camera } from '../core/camera.js';
 import { Emitter } from '../core/emitter.js';
 import { PhysicsWorld } from '../physics/world.js';
@@ -30,12 +30,12 @@ import { deliver, checkDeliveries, totalScore, breakScore, crystals } from './sc
  *  'lancio'    {tipo, x, y, vx, vy, velocita}         pacco lanciato (velocita in m/s, max ~24)
  *  'rottura'   {materiale, area, x, y, pezzi, forza, daPacco}  neve/ghiaccio/pupazzo che si rompe
  *               materiale: 'ice' | 'snow' | 'snowman'; area in m²; forza = impulso efficace (N·s)
+ *  'svanito'   {tipo, x, y}                           pacco non consegnato che implode a fine turno
  *  'vetro'     {apertura, x, y, daPacco}              vetro di porta/finestra infranto (apertura: 'door' | 'window')
  *  'consegna'  {tipo, punti, casa, ripetizione, x, y} tipo: 'chimney' | 'window' | 'door'; casa = indice;
  *               ripetizione = consegne in quell'apertura compresa questa (1 = prima)
  *  'renna'     {renna, x, y, colpi, punti, daPacco}   renna spaventata e punti tolti (punti negativi)
  *  'fine'      riepilogo (vedi scoring.summarize)    fine livello
- *  'accelera'  {stato}                                un tocco durante volo/assestamento accelera la simulazione
  * Gli ascoltatori sopravvivono a reset() e setLevel().
  *
  * Callback rimasta: onLevels() (pulsante "Livelli" del pannello finale, la gestisce main.js).
@@ -69,11 +69,11 @@ export class Game extends Emitter {
     this.sleigh = new Sleigh(this.level.sleigh.x, this.level.gifts);
     this.sling = new Slingshot(this.level.sling.x, this.level.sling.y);
     this.thrown = []; // corpi dei pacchi lanciati
+    this.puffs = []; // pacchi non consegnati che implodono in una nuvoletta: {x, y, angle, tipo, t}
     this.current = null; // pacco in volo
     this.state = 'ready';
     this.stateTime = 0;
     this.simTime = 0; // tempo fisico dall'inizio del livello (s): avanza solo con gli step, mai col tempo reale
-    this.veloce = false; // simulazione accelerata (tocco durante volo/assestamento), vedi passiPerAggiornamento
     this.trajectory = [];
     this.carry = null; // pacco trascinato dalla slitta {gift, x, y, moved}
     this.mode = null; // gesto in corso: 'aim' | 'carry' | 'pan'
@@ -99,7 +99,7 @@ export class Game extends Emitter {
     const prima = this.state;
     this.state = s;
     this.stateTime = 0;
-    if (s !== 'flight' && s !== 'settle') this.veloce = false; // l'accelerazione vale per un solo tiro
+    this.fermoDa = null; // istante (stateTime) in cui la scena si è fermata durante l'assestamento, vedi turn.js
     this.emit('stato', { stato: s, prima });
   }
 
@@ -167,21 +167,6 @@ export class Game extends Emitter {
     endLevel(this);
   }
 
-  /**
-   * Tocco durante il volo o l'assestamento: la simulazione accelera (FAST.steps step per aggiornamento)
-   * finché il turno non finisce da solo, a pacchi fermi. Gli step sono gli stessi di prima: l'esito non cambia.
-   */
-  accelera() {
-    if ((this.state !== 'flight' && this.state !== 'settle') || this.veloce || FAST.steps <= 1) return;
-    this.veloce = true;
-    this.emit('accelera', { stato: this.state });
-  }
-
-  /** Step fisici da eseguire per ogni aggiornamento del loop (1, oppure FAST.steps se si accelera). */
-  get passiPerAggiornamento() {
-    return this.veloce && (this.state === 'flight' || this.state === 'settle') ? FAST.steps : 1;
-  }
-
   // ---------------------------------------------------------------- update
 
   /** Passo fisico a timestep fisso. L'ordine delle fasi fa parte del comportamento (generatore con seme). */
@@ -189,7 +174,9 @@ export class Game extends Emitter {
     this.pw.step();
     this.stateTime += dt;
     this.simTime += dt;
-    for (const t of this.trees) t.collide(this.thrown, this.pw.prev);
+    let cristalli = 0;
+    for (const t of this.trees) cristalli += t.collide(this.thrown, this.pw.prev);
+    if (cristalli) this.emit('cristalli', { n: cristalli });
 
     // Rotture raccolte durante lo step (evento 'rottura'), poi detriti che svaniscono
     const { added } = this.fracture.process(this.pw.counts().dynamic);
@@ -223,10 +210,16 @@ export class Game extends Emitter {
     this.sling.update(dt);
     this.particles.update(dt);
     for (const t of this.trees) t.update(dt);
-    for (const h of this.houses) for (const z of h.zones) if (z.glow > 0) z.glow = Math.max(0, z.glow - dt);
+    if (this.puffs.length) {
+      for (const p of this.puffs) p.t += dt;
+      this.puffs = this.puffs.filter((p) => p.t < TURN.puffImplode + TURN.puffCloud);
+    }
     for (const f of this.floaters) {
       f.t += dt;
-      f.y += dt * SCORE.floaterRise;
+      // sale veloce e rallenta (vola via), con una leggera deriva laterale
+      const k = Math.max(0, 1 - f.t / SCORE.floaterLife);
+      f.y += dt * SCORE.floaterRise * (0.35 + 1.3 * k);
+      f.x += dt * (f.vx || 0) * k;
     }
     this.floaters = this.floaters.filter((f) => f.t < SCORE.floaterLife);
     if (this.panIdle !== null && (this.panIdle += dt) > TURN.panReturn) {

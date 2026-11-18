@@ -28,7 +28,7 @@ snow and ice that break realistically. A parcel is delivered (and scores points)
 | Obstacle iterations (snow, tree, arches, ice sculptures, igloo) | ✅ on desktop only |
 | Opening camera sequence, level selector | ✅ (part of M5 brought forward) |
 | **M4 setting** (direction A "Notte di velluto": parallax backdrop, cartoon houses with three rooms, snow caps, falling snow, HUD, quality tiers) | ✅ on desktop Chrome only — **not measured on the phone** |
-| **M5 direction and UX**: synthesized audio (effects + music + mute), "Buone Feste" end screen, plugged-opening labels, tap-to-fast-forward | ✅ desktop Chrome headless only — **not listened to, not on the phone** |
+| **M5 direction and UX**: synthesized audio (effects + music + mute), "Buone Feste" end screen, plugged-opening labels (tap-to-fast-forward removed on request) | ✅ desktop Chrome headless only — **not listened to, not on the phone** |
 | M5 rest: progression between levels, total stars | ❌ |
 | **M6 polish** (quality tiers, offline PWA, iOS tests, HTTPS publishing) | ❌ |
 | Level 3 "La tormenta" (chairlift + wind) | ❌ only proposed |
@@ -47,6 +47,8 @@ npm run build      # static output in dist/
 - Keys: `R` reset, `L` level selector, `Esc` closes the selector, `M` mute/unmute; with `?debug` also `W` wake everything, `S` stress.
 
 ### Levels (`src/game/levels/`, order in `index.js`)
+**Current selector (19/11): `borgo-addormentato` (easy), `bosco-di-cristallo` (medium), `vetta-del-gufo` (hard) — points and stars calibrated on 19/11 (GDD, last chronological entries); tested on the S21. Older JSONs are kept in the folder, unlisted.**
+
 **One level for now** (user decision, 18/11): `il-villaggio` — from the left: pine, sleigh, sling, **crystal tree right after the sling**, arcade fort (2 arches × 2 storeys, ice bridge, snowmen) towards the houses, house A on the ground (snow drift at the door), **pine between the houses**, house B on a 3 m hill (snow cap on the chimney), **three pines** after it. Currently **very hard** (medium simulated player 1.6 deliveries out of 5): scoring/difficulty to be tuned later (user decision). The old JSONs (`villaggio-albero`, `villaggio-fortini`, `la-collina`) are still in the folder but not listed and use superseded keys.
 
 ### Measurement tools (`tools/sim/`, headless, seeded)
@@ -83,12 +85,13 @@ Vite + vanilla JS (ES modules), **Planck.js 1.5** (Box2D port) for physics, **Ca
 src/
 ├─ main.js               bootstrap: canvas/resize/letterbox, fullscreen, input → game, loop, level selector,
 │                        best score (localStorage), debug tools (window.xmas)
-├─ config.js             ALL tunable constants (camera, materials, thresholds, scoring, times, AUDIO, FAST) — commented
-├─ audio/                synthesized Web Audio, no files (M5)
+├─ config.js             ALL tunable constants (camera, materials, thresholds, scoring, times, AUDIO) — commented
+├─ audio/                Web Audio: effects synthesized live, music played from a pre-recorded file (M5)
 │  ├─ motore.js          AudioContext (created on the first gesture), buses sfx/music → master → compressor, shared noise buffer,
 │  │                     voice limit (AUDIO.maxVoices), mute (suspends the context, localStorage), visibility suspend/resume, stats
-│  ├─ effetti.js         the sounds: band tension (continuous), launch, snow/ice/snowman breaks, glass, delivery bells, reindeer, cancel, jingle, fast-forward
-│  ├─ musica.js          "Jingle Bells" chorus (1857, public domain) in our own arrangement: lookahead sequencer on the context clock
+│  ├─ effetti.js         the sounds: band tension (continuous), launch, snow/ice/snowman breaks, glass, delivery bells, reindeer, cancel, jingle, tree crystals
+│  ├─ musica.js          plays public/audio/musica.m4a in a seamless loop (one buffer source, decoded once)
+│  ├─ arrangiamento.js   "Jingle Bells" chorus + verse (1857, public domain), our arrangement: NOT run in the game, only by tools/audio/registra-musica.mjs (`npm run musica`) to re-record the file
 │  └─ regia.js           avviaAudio(game, {button}): game events → sounds, break grouping, music ducking, mute button + M key; `aggiorna()` every frame
 ├─ style.css             phone frame on desktop, DOM buttons, selector, "rotate the phone" overlay
 ├─ core/
@@ -132,7 +135,6 @@ src/
 │  ├─ levelBuilder.js    buildLevel(pw, json) → forts, slabs, trees, hills, pines, reindeer, houses (order matters: seeded rng)
 │  ├─ contacts.js        contact callbacks (glass, chimney edge, reindeer, impulses → Fracture), queues, shatterGlass
 │  ├─ turn.js            turn states: launch, giftsResting, nextTurn, endLevel, flight/settle transitions
-│  │                     (fast-forward: `game.accelera()` / `game.passiPerAggiornamento`, run by `update()` in main.js)
 │  ├─ gestures.js        pointerDown/Move/Up: carry from the sleigh, aim (frozen camera), pan; trajectory preview
 │  ├─ scoring.js         deliver, deliveries/lost parcels after the step, total score, end-of-level summary
 │  ├─ intro.js           opening camera move
@@ -143,7 +145,7 @@ src/
    ├─ quality.js         quality tier (alta/media/bassa), automatic step-down, `?qualita=` override
    ├─ backdrop.js        offscreen parallax: sky+moon+stars, far/mid mountains, soft hills, town skyline, tall pines; twinkling stars
    ├─ terrainDraw.js     sinuous ground (per frame, visible span only), hill sprites, stones
-   ├─ houseDraw.js       house sprite (three rooms, curved walls and chimney, snow-cap roof); per frame: panes, delivery glow
+   ├─ houseDraw.js       house sprite (three rooms, curved walls and chimney, snow-cap roof); per frame: panes
    ├─ snow.js            materials: cartoon snow blocks, the "cappello" snow cap, ice
    ├─ bodiesDraw.js      dynamic bodies: snow/ice sprites per intact body, direct drawing for fragments, glass shards, snowmen, gifts
    ├─ propsDraw.js       gift sprites, sleigh sprite, slingshot, snowman balls, decorations (lamp post, signpost, bushes, sled)
@@ -159,7 +161,7 @@ docs/GDD.md              design + chronological history of the iterations with m
 ### Turn state machine (`game.state`)
 `intro` (continuous camera move houses → panorama → sling, 4.2 s, a tap skips it) → `ready` (pick/aim) → `flight` (camera follows the parcel)
 → `settle` (waits for the scene to sleep, max 4 s; 1.6 s minimum after a delivery) → `ready`… → `end` (when **no parcels are left to throw**: "Buone Feste!" panel with stars, score, "Livelli" / "Riprova").
-**Fast-forward** (M5): a tap during `flight` or `settle` sets `game.veloce` → `FAST.steps` (4) physics steps per loop update (stopped early if they exceed `FAST.budgetMs`), "▶▶" badge; it ends by itself when the state leaves flight/settle. Same fixed-dt step sequence → same outcome (verified). Nothing that the physics/rules read may depend on real time: the reindeer "already scared" cooldown uses `game.simTime` (physics time).
+**No fast-forward** (removed on request, 18/11): a tap during `flight`/`settle` does nothing. Nothing that the physics/rules read may depend on real time: the reindeer "already scared" cooldown uses `game.simTime` (physics time).
 
 ### Physics: key points
 - **Units**: metres, kg, s. Logical view 1280×600 (2.13:1); camera `viewW` = visible metres.
@@ -181,27 +183,28 @@ docs/GDD.md              design + chronological history of the iterations with m
 | `annullato` | `{}` released with too little tension (no throw) |
 | `lancio` | `{tipo, x, y, vx, vy, velocita}` (m/s, max ~24) |
 | `rottura` | `{materiale: 'ice' / 'snow' / 'snowman', area (m²), x, y, pezzi, forza (N·s), daPacco}` |
+| `cristalli` | `{n}` crystals knocked off the tree in this step (emitted after the step) |
+| `svanito` | `{tipo, x, y}` an undelivered gift imploding into a puff at the end of the turn (body removed) |
 | `vetro` | `{apertura: 'door' / 'window', x, y, daPacco}` |
 | `consegna` | `{tipo: 'chimney' / 'window' / 'door', punti, casa (index), ripetizione (1 = first), x, y}` |
 | `renna` | `{renna, x, y, colpi, punti (−100), daPacco}` (queued in the callback, emitted after the step) |
 | `fine` | end-of-level summary (main.js saves the best score with it; the old `onEnd`/`onEvent` are gone) |
-| `accelera` | `{stato}` a tap started the fast-forward (flight/settle) |
 
 `onLevels()` stays a plain callback (end panel "Livelli" button).
 
 ### Sounds (M5, `src/audio/regia.js`, constants in `AUDIO`)
 | Event | Sound |
 |---|---|
-| `tensione` | continuous band tone (filtered saw + triangle, tremolo), 150→520 Hz with tension², followed every frame while `game.mode === 'aim'` |
+| `tensione` | comic kazoo voice (square + saw an octave below through a band-pass "vowel" opening oo→ee, pitch vibrato widening with tension), 170→560 Hz, low volume (0.011), plus a rubber squeak at each of 9 tension steps; followed every frame while `game.mode === 'aim'` |
 | `annullato` | small muffled descending "thunk" |
 | `lancio` | snap (noise click + 260→70 Hz twang) + air whoosh, longer/louder with `velocita` |
 | `rottura` | snow: soft thump + low-pass rustle; ice: 3–5 crystalline tinkles; snowman: deeper thump. **Grouped**: ≤ `breakMax` (2) sounds per material every `breakWindow` (0.1 s), the strongest; extra breaks raise the group volume. Volume from `forza` (log) and `area` |
+| `cristalli` | soft high tinkle (2–4 very short sine pings 3.2–6.8 kHz + faint high-pass noise), at most one every `crystalWindow` (0.07 s), volume `crystalGain` |
 | `vetro` | high noise crash + 9 falling shards (one sound per 80 ms) |
 | `consegna` | pentatonic bells: door 2 notes, window 3, chimney 5 + chord + sparkle; starting note C5→G5 with points; repeats one note shorter |
 | `renna` | funny bleat/honk (saw through two moving formants, pitch up-down, wide vibrato, 0.42 s) |
 | `fine` | bell jingle (one more note per star), then music fades to 40% |
-| `accelera` | short fast whoosh |
-Music: "Jingle Bells" chorus, own arrangement (plucked melody that moves to bells every other loop, oom-pah bass, sleigh bells on eighths, glockenspiel arpeggios on held notes, 2 bars of rest), C major, 116 bpm, volume 0.12, 45% while aiming. Max 14 simultaneous effect voices. Mute button `#muto-btn` (SVG speaker) + `M`, saved in `localStorage['xmas-muto']`; muted = context suspended.
+Music (pre-recorded in `public/audio/musica.m4a`, AAC 48 kbps mono, 855 KB, 140.69 s cycle = 2 rounds; re-record with `npm run musica` after changing `arrangiamento.js`, then update `AUDIO.musicaDurata`): "Jingle Bells" chorus then verse (16 + 16 bars), own arrangement, every note randomly shifted up to 35 ms and the melody detuned up to 22 cents ("played by hand") (plucked melody that moves to bells every other loop, oom-pah bass, sleigh bells on eighths, glockenspiel arpeggios on held notes, 2 bars of rest), C major, 116 bpm, volume 0.12, 45% while aiming. Max 14 simultaneous effect voices. Mute button `#muto-btn` (SVG speaker) + `M`, saved in `localStorage['xmas-muto']`; muted = context suspended.
 
 ### Level JSON schema
 ```jsonc
@@ -211,6 +214,7 @@ Music: "Jingle Bells" chorus, own arrangement (plucked melody that moves to bell
   "sleigh": { "x": 0.3 }, "sling": { "x": 5.4, "y": 2.6 },
   "gifts": ["standard", "small", "big", "standard", "small"], // the 5 parcels on the sleigh
   "preview": 0.6,                                              // fraction of the trajectory preview
+  "previewDist": 12,            // optional: trajectory preview shown only up to this distance (m) from the sling, whatever the pull; replaces "preview"
   "stars": [2000, 3500, 5000],                                 // thresholds for 1–3 stars
   "camera": { "aimCenter": 12, "aimW": 26 },                   // framing at rest on the sling
   "forts": [                                                   // snow forts
@@ -228,7 +232,8 @@ Music: "Jingle Bells" chorus, own arrangement (plucked melody that moves to bell
       "door": { "h": 1.9, "points": 200 },
       "windows": [ { "y": 2.25, "h": 1.45, "points": 700 } ],
       "chimney": { "pos": 0.4, "bottom": 0.95, "top": 1.7, "h": 1.4, "tilt": 12, "points": 1000 },
-      "snowCap": true, "doorDrift": false }                    // snow plugging the chimney / drift at the door
+      "snowCap": true, "doorDrift": false,                     // snow plugging the chimney / drift at the door
+      "stile": "baita" | "casetta" }                           // drawing only: palette, roof, gable, furnishing (houseDraw.js)
   ]
 }
 ```
@@ -281,7 +286,7 @@ Music: "Jingle Bells" chorus, own arrangement (plucked melody that moves to bell
 
 1. **Phone test** of the current state (all 3 levels; FPS during collapses; gestures; intro; selector).
 2. **M4 setting**: implemented (see GDD, "M4 «ambientazione»"). Left to do: phone measurements and tuning of `GFX.tiers`/`GFX.auto`; user's choices still open: bundled rounded web font or system fonts, optional foreground layer (advised against), minimal reindeer idle animation already in place.
-3. **M5**: audio, "Buone Feste", plugged labels and fast-forward are done (GDD "M5 «regia e audio»"): **listen to them for real** (desktop + S21: volumes, ducking, the reindeer voice, how dense a collapse sounds; tune `AUDIO`), check the fast-forward FPS on the phone during a collapse. Left: progression to the next level, total stars.
+3. **M5**: audio, "Buone Feste", plugged labels are done (GDD "M5 «regia e audio»"): **listen to them for real** (desktop + S21: volumes, ducking, the reindeer voice, how dense a collapse sounds; tune `AUDIO`). Left: progression to the next level, total stars.
 4. **Level 3 "La tormenta"**: proposed with a swinging chairlift (Planck joints) and wind that pushes the parcel; to be agreed with the user.
 5. **M6**: quality tiers, offline service worker, publishing over HTTPS (installable PWA), iOS test.
 

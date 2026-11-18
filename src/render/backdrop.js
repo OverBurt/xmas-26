@@ -8,12 +8,18 @@ const ORIZ = VIEW_H + CAMERA.bottom * PPM_REF;
 
 /**
  * Sfondo in parallasse, pre-renderizzato una volta per livello su canvas offscreen:
- * cielo con luna e stelle (fermo), montagne lontane e medie, colline morbide, profilo della città, pini alti.
- * A ogni frame sono 6 drawImage più le poche stelle che tremolano.
+ * cielo con luna e stelle (fermo), montagne lontane e medie, profilo della città, pini alti.
+ * Ogni piano ha un gradiente verticale che scurisce salendo: le sagome scure del piano davanti risaltano.
+ * A ogni frame sono 5 drawImage più le poche stelle che tremolano.
  */
 export class Backdrop {
-  /** @param {{minX:number,maxX:number}} bounds  @param {object} tier livello di qualità (GFX.tiers) */
-  constructor(bounds, tier) {
+  /**
+   * @param {{minX:number,maxX:number}} bounds  @param {object} tier livello di qualità (GFX.tiers)
+   * @param {{left:number, ppm:number, slitta:number, paeseDa:number}} rif inquadratura di mira (bordo sinistro
+   *   in m, pixel per metro) e due punti del mondo da rispettare in quella vista: la slitta, dietro cui stanno
+   *   tre pini, e il punto da cui iniziano le case del paese (a destra dell'albero).
+   */
+  constructor(bounds, tier, rif) {
     this.bounds = bounds;
     this.tier = tier;
     const k = tier.layer;
@@ -26,21 +32,41 @@ export class Backdrop {
       const p = GFX.parallax[name];
       const W = larghezza(bounds, p);
       const [cv, c] = makeCanvas(W, VIEW_H, k);
-      paint(c, W);
-      const L = { cv, W, f: p.f, zoom: p.zoom };
+      // x nel piano (px) che, con la camera nell'inquadratura di mira, sta davanti al punto wx del mondo
+      const s = 1 + (rif.ppm / PPM_REF - 1) * p.zoom;
+      const lx = (wx) => ((wx - rif.left) * rif.ppm + (rif.left - bounds.minX) * rif.ppm * p.f) / s;
+      const extra = paint(c, W, lx);
+      const L = { cv, W, f: p.f, zoom: p.zoom, gufo: extra?.gufo };
       toBitmap(L);
       this.layers.push(L);
     };
-    add('lontane', (c, W) => montagne(c, W, 0));
-    add('medie', (c, W) => montagne(c, W, 1));
-    add('colline', (c, W) => colline(c, W));
-    add('paese', (c, W) => paese(c, W));
-    add('pini', (c, W) => piniAlti(c, W));
+    // Montagne: le vette a mano (aggiunte, spostate, alzate) si danno in px dello schermo nell'inquadratura di mira.
+    // Per le regolazioni, in console: __vetteLontane e __vetteMedie (indice, x sullo schermo, altezza, larghezza).
+    for (const [k, nome, debug] of [[0, 'lontane', '__vetteLontane'], [1, 'medie', '__vetteMedie']]) {
+      const p = GFX.parallax[nome];
+      const s = 1 + (rif.ppm / PPM_REF - 1) * p.zoom;
+      const off = (rif.left - bounds.minX) * rif.ppm * p.f;
+      const schermoAlPiano = (sx) => (sx + off) / s;
+      add(nome, (c, W) => {
+        const pk = montagne(c, W, k, schermoAlPiano);
+        if (typeof window !== 'undefined') window[debug] = pk.map((v, i) => ({ i, x: Math.round(v.x * s - off), h: Math.round(v.h), w: Math.round(v.w) }));
+      });
+    }
+    add('paese', (c, W, lx) => paese(c, W, lx(rif.paeseDa)));
+    // punto dello schermo (px logici) → punto del piano dei pini, con la camera nell'inquadratura di mira
+    const sulPiano = (p, sx, sy) => {
+      const s = 1 + (rif.ppm / PPM_REF - 1) * p.zoom;
+      const hy = VIEW_H + CAMERA.bottom * rif.ppm;
+      return { x: (sx + (rif.left - bounds.minX) * rif.ppm * p.f) / s, y: (sy - hy + ORIZ * s) / s, s };
+    };
+    const luna = sulPiano(GFX.parallax.pini, GFX.moon.x, GFX.moon.y);
+    add('pini', (c, W, lx) => piniAlti(c, W, lx(rif.slitta), lx(rif.paeseDa), luna));
     const R = seeded(2024);
     this.lumi = Array.from({ length: 16 }, () => ({ x: R() * VIEW_W, y: 20 + R() * 250, r: 2.6 + R() * 2.6, a: 0.7 + R() * 1.1, c: 0.35 + R() * 0.5, p: R() * TAU, q: R() * TAU, s: R() * TAU }));
   }
 
-  draw(ctx, camera, t) {
+  /** @param {{x:number,y:number}|null} [sguardo] punto dello schermo (px logici) che guarda il gufo */
+  draw(ctx, camera, t, sguardo) {
     ctx.drawImage(this.sky, 0, 0, VIEW_W, VIEW_H);
     // Stelle che tremolano in modo irregolare: tre sinusoidi con periodi non multipli tra loro, più lampi brevi
     const n = this.tier.twinkle;
@@ -63,6 +89,44 @@ export class Backdrop {
     for (const L of this.layers) {
       const s = 1 + (ppm / PPM_REF - 1) * L.zoom;
       ctx.drawImage(L.cv, -dx * L.f, hy - ORIZ * s, L.W * s, VIEW_H * s);
+      if (L.gufo) this.pupille(ctx, L.gufo, -dx * L.f, hy - ORIZ * s, s, sguardo);
+    }
+  }
+
+  /**
+   * Pupille del gufo, disegnate a ogni frame sopra il piano dei pini: guardano il punto `sguardo` (schermo).
+   * Lo sguardo si muove morbido verso il bersaglio; senza bersaglio torna a guardare avanti, un po' in basso.
+   */
+  pupille(ctx, G, ox, oy, s, sguardo) {
+    const cx = ox + G.x * s;
+    const cy = oy + G.y * s;
+    let tx = 0;
+    let ty = 0.35;
+    if (sguardo) {
+      const vx = sguardo.x - cx;
+      const vy = sguardo.y - cy;
+      const d = Math.hypot(vx, vy) || 1;
+      const k = Math.min(1, d / 60); // vicinissimo: pupille quasi al centro
+      tx = (vx / d) * k;
+      ty = (vy / d) * k;
+    }
+    const o = (this.occhio ||= { x: 0, y: 0.35 });
+    o.x += (tx - o.x) * 0.18;
+    o.y += (ty - o.y) * 0.18;
+    const u = G.u * s;
+    for (const sx of [-1, 1]) {
+      const ex = cx + sx * 5 * u;
+      const ey = cy;
+      const px = ex + o.x * 2.1 * u;
+      const py = ey + o.y * 2.1 * u;
+      ctx.fillStyle = C.gufo;
+      ctx.beginPath();
+      ctx.ellipse(px, py, 2.7 * u, 2.9 * u, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#fffaf0';
+      ctx.beginPath();
+      ctx.arc(px - 1 * u, py - 1.2 * u, 0.95 * u, 0, TAU);
+      ctx.fill();
     }
   }
 }
@@ -94,7 +158,7 @@ function cielo(c) {
     c.fill();
   }
   c.globalAlpha = 1;
-  // luna bassa sull'orizzonte: le vette più alte le passano davanti (si legge lontana, dietro le montagne)
+  // luna: dipinta nel cielo, quindi tutti i piani delle montagne le passano davanti
   const { x: mx, y: my, r: mr } = GFX.moon;
   for (const [rr, a] of [[230, 0.16], [110, 0.24]]) {
     const h = c.createRadialGradient(mx, my, mr * 0.6, mx, my, rr);
@@ -115,26 +179,96 @@ function cielo(c) {
   }
 }
 
-/** Un piano di montagne largo W: vette di altezza molto varia (una su tre è alta, le altre sparse), cime innevate. */
-function montagne(c, W, k) {
+/** Un piano di montagne largo W: vette di altezza molto varia (una su tre è alta, le altre sparse), cime innevate. Restituisce le vette. */
+function montagne(c, W, k, schermoAlPiano) {
   const R = seeded(91 + k * 37);
+  // Schiacciamento verticale (GFX.montiForma): le vette scendono di scala, le valli salgono sopra l'orizzonte;
+  // `tondo` mescola il profilo a punta (fianchi dritti) con una campana a coseno (cima e piedi arrotondati),
+  // `sposta` trasla tutte le vette in orizzontale
+  const { scala, valle, tondo = 0, sposta = 0 } = GFX.montiForma[k];
   const [per, h0, h1, w0, w1] = [[4.6, 250, 520, 240, 410], [5.6, 200, 400, 190, 310]][k];
   const n = Math.max(3, Math.round((per * W) / 1300));
   const pk = [];
-  for (let i = 0; i < n; i++) {
+  // traslate a sinistra, una vetta in più in fondo copre la fine del piano (le precedenti restano identiche)
+  for (let i = 0; i < n + (sposta < 0 ? 1 : 0); i++) {
     const alta = i % 3 === (k + 1) % 3;
-    pk.push({ x: ((i + 0.5 + (R() - 0.5) * 0.9) / n) * W, h: h0 + (h1 - h0) * (alta ? 0.72 + R() * 0.28 : R() * 0.62), w: w0 + R() * (w1 - w0) });
+    pk.push({ x: ((i + 0.5 + (R() - 0.5) * 0.9) / n) * W + sposta, h: h0 + (h1 - h0) * (alta ? 0.72 + R() * 0.28 : R() * 0.62), w: w0 + R() * (w1 - w0) });
   }
+  // spostamenti a mano di singole vette (GFX.montiForma[k].spostaVette: {indice: px dello schermo})
+  for (const [i, d] of Object.entries(GFX.montiForma[k].spostaVette || {})) if (pk[i]) pk[i].x += schermoAlPiano ? d * (schermoAlPiano(1) - schermoAlPiano(0)) : d;
+  // vette alzate a mano (GFX.montiForma[k].alzaVette: {indice: altezza in più, nelle stesse unità di h})
+  for (const [i, d] of Object.entries(GFX.montiForma[k].alzaVette || {})) if (pk[i]) pk[i].h += d;
+  // vette tolte a mano (GFX.montiForma[k].togliVette: indici): altezza zero, gli indici delle altre non cambiano
+  for (const i of GFX.montiForma[k].togliVette || []) if (pk[i]) pk[i].h = 0;
+  // vette aggiunte a mano (GFX.montiForma[k].vette: x in px dello schermo nell'inquadratura di mira, h e w come le altre)
+  for (const v of GFX.montiForma[k].vette || []) pk.push({ x: schermoAlPiano ? schermoAlPiano(v.x) : v.x, h: v.h, w: v.w, forma: v.forma });
+  // Forme diverse (GFX.montiForma[k].varieta): ogni vetta riceve una forma da un generatore a parte, così
+  // posizioni e altezze restano quelle di prima (e le regolazioni a mano valgono ancora).
+  if (GFX.montiForma[k].varieta) {
+    const RF = seeded(4242 + k);
+    const FORME = ['aguzza', 'altopiano', 'asimmetrica', 'doppia', 'tonda'];
+    pk.forEach((p, i) => {
+      const f = FORME[(i + Math.floor(RF() * 2)) % FORME.length];
+      p.forma ||= f; // una vetta aggiunta a mano può avere la sua forma (`forma`)
+      p.lato = RF() < 0.5 ? -1 : 1; // da che parte sta il fianco lungo / la cima secondaria
+    });
+  }
+  /** Profilo di una vetta a distanza relativa d (0 = cima, 1 = piede); `s` = lato (-1 sinistra, +1 destra). */
+  const profilo = (p, dx) => {
+    const lato = Math.sign(dx) || 1;
+    switch (p.forma) {
+      case 'aguzza': { // fianchi concavi: punta sottile e piede largo
+        const d = Math.abs(dx) / p.w;
+        return d >= 1 ? 0 : p.h * (1 - d) ** 1.7;
+      }
+      case 'altopiano': { // cima piatta e larga, fianchi ripidi
+        const d = Math.abs(dx) / p.w;
+        return d >= 1 ? 0 : p.h * Math.min(1, (1 - d) * 2.1) * (1 - 0.06 * Math.sin(dx * 0.08));
+      }
+      case 'asimmetrica': { // un fianco ripido e corto, l'altro lungo e dolce
+        const w = p.w * (lato === p.lato ? 1.45 : 0.6);
+        const d = Math.abs(dx) / w;
+        return d >= 1 ? 0 : p.h * (1 - d) ** (lato === p.lato ? 1.25 : 0.85);
+      }
+      case 'doppia': { // due cime vicine con una sella in mezzo
+        const d1 = Math.abs(dx) / p.w;
+        const d2 = Math.abs(dx - p.lato * p.w * 0.42) / (p.w * 0.75);
+        return Math.max(d1 >= 1 ? 0 : p.h * (1 - d1), d2 >= 1 ? 0 : p.h * 0.84 * (1 - d2) ** 1.2);
+      }
+      case 'roccia': { // vetta "vera": asimmetrica, con una spalla sul fianco lungo e piccole irregolarità di roccia
+        const lungo = lato === p.lato;
+        const d = Math.abs(dx) / (p.w * (lungo ? 1.25 : 0.7));
+        const cima = d >= 1 ? 0 : p.h * (1 - d) ** (lungo ? 0.95 : 1.15);
+        const ds = Math.abs(dx - p.lato * p.w * 0.55) / (p.w * 0.45);
+        const spalla = ds >= 1 ? 0 : p.h * 0.6 * (0.5 + 0.5 * Math.cos(Math.PI * ds));
+        return Math.max(cima, spalla) * (1 + 0.035 * Math.sin(dx * 0.16 + 1) + 0.025 * Math.sin(dx * 0.41));
+      }
+      case 'tonda': { // dorso arrotondato
+        const d = Math.abs(dx) / (p.w * 1.1);
+        return d >= 1 ? 0 : p.h * (0.5 + 0.5 * Math.cos(Math.PI * d));
+      }
+      default: {
+        const d = Math.abs(dx) / p.w;
+        return d >= 1 ? 0 : p.h * ((1 - d) * (1 - tondo) + (0.5 + 0.5 * Math.cos(Math.PI * d)) * tondo);
+      }
+    }
+  };
   const quota = (x) => {
     let m = 0;
     for (const p of pk) {
-      const v = p.h * (1 - Math.abs(x - p.x) / p.w);
+      if (Math.abs(x - p.x) > p.w * 1.5) continue;
+      const v = profilo(p, x - p.x);
       if (v > m) m = v;
     }
     return m;
   };
   const pts = [];
-  for (let x = -6; x <= W + 6; x += 6) pts.push([x, ORIZ - (quota(x) * 0.92 + 26 + 7 * Math.sin(x * 0.045 + k) + 3 * Math.sin(x * 0.13))]);
+  const qq = [];
+  for (let x = -6; x <= W + 6; x += 6) {
+    const q = quota(x);
+    qq.push(q);
+    pts.push([x, ORIZ - (valle + q * 0.92 * scala + 7 * Math.sin(x * 0.045 + k) + 3 * Math.sin(x * 0.13))]);
+  }
   const trac = () => {
     c.beginPath();
     c.moveTo(-6, VIEW_H);
@@ -142,9 +276,9 @@ function montagne(c, W, k) {
     c.lineTo(W + 6, VIEW_H);
     c.closePath();
   };
-  const gr = c.createLinearGradient(0, ORIZ - h1, 0, ORIZ);
-  gr.addColorStop(0, C.monti[k]);
-  gr.addColorStop(1, C.monti[k + 1]);
+  const gr = c.createLinearGradient(0, ORIZ - valle - h1 * scala, 0, ORIZ);
+  gr.addColorStop(0, C.monti[k][0]); // in cima, più scuro
+  gr.addColorStop(1, C.monti[k][1]); // alla base, più chiaro
   trac();
   c.fillStyle = gr;
   c.fill();
@@ -155,8 +289,8 @@ function montagne(c, W, k) {
   c.beginPath();
   c.moveTo(-6, 0);
   pts.forEach((p, i) => {
-    const hh = ORIZ - p[1];
-    c.lineTo(p[0], p[1] + Math.max(0, hh - soglia) * 0.5 + (hh > soglia ? (i % 2) * 7 : -2));
+    const hh = qq[i]; // quota della vetta prima dello schiacciamento: la neve resta sulle stesse cime
+    c.lineTo(p[0], p[1] + Math.max(0, hh - soglia) * 0.5 * scala + (hh > soglia ? (i % 2) * 7 * (1 - tondo) : -2));
   });
   c.lineTo(W + 6, 0);
   c.closePath();
@@ -164,36 +298,29 @@ function montagne(c, W, k) {
   c.globalAlpha = 1 - k * 0.3;
   c.fill();
   c.restore();
+  return pk;
 }
 
-/** Colline: due dorsali tonde e dolci, senza punte, con un filo di neve sulla cresta. */
-function colline(c, W) {
-  for (const [base, amp, fr, ph, c1, c2] of [[205, 46, 0.0031, 0.6, C.monti[2], '#242a66'], [150, 40, 0.0043, 2.9, '#232962', '#1e2459']]) {
-    const yy = (x) => ORIZ - (base + amp * Math.sin(x * fr + ph) + amp * 0.42 * Math.sin(x * fr * 2.2 + ph * 1.9) + amp * 0.16 * Math.sin(x * fr * 4.1 + ph));
-    const gr = c.createLinearGradient(0, ORIZ - base - amp * 1.6, 0, ORIZ);
-    gr.addColorStop(0, c1);
-    gr.addColorStop(1, c2);
-    c.beginPath();
-    c.moveTo(-6, VIEW_H);
-    for (let x = -6; x <= W + 6; x += 5) c.lineTo(x, yy(x));
-    c.lineTo(W + 6, VIEW_H);
-    c.closePath();
-    c.fillStyle = gr;
-    c.fill();
-    c.beginPath();
-    for (let x = -6; x <= W + 6; x += 5) x === -6 ? c.moveTo(x, yy(x) + 1) : c.lineTo(x, yy(x) + 1);
-    c.strokeStyle = 'rgba(206,216,255,0.16)';
-    c.lineWidth = 2;
-    c.stroke();
-  }
+/** Mescola due colori esadecimali (#rrggbb): t = 0 → a, t = 1 → b. */
+function mescola(a, b, t) {
+  const n = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  return `rgb(${[0, 1, 2].map((i) => Math.round(n(a, i) + (n(b, i) - n(a, i)) * t)).join(',')})`;
+}
+
+/** Gradiente verticale da `alto` (y0) a `basso` (y1): i piani scuriscono salendo. */
+function verticale(c, y0, y1, alto, basso) {
+  const g = c.createLinearGradient(0, y0, 0, y1);
+  g.addColorStop(0, alto);
+  g.addColorStop(1, basso);
+  return g;
 }
 
 /** Abete di sfondo (sagoma senza contorno). Con un generatore `R` ogni albero è diverso; `alto` = slanciato a più piani. */
-function abete(c, x, y, h, col, neveCol, R, alto) {
+function abete(c, x, y, h, col, neveCol, R, alto, dritto = false) {
   const r = R || (() => 0.5);
   const n = R ? (alto ? 4 : 3) + Math.floor(r() * 3) : 3;
   const w = h * (R ? (alto ? 0.17 + r() * 0.1 : 0.22 + r() * 0.2) : 0.36);
-  const piega = R ? (r() - 0.5) * 0.7 : 0;
+  const piega = R ? (r() - 0.5) * 0.7 * (dritto ? 0 : 1) : 0; // `dritto`: punta esattamente sopra x
   const piani = [];
   c.fillStyle = col;
   for (let i = 0; i < n; i++) {
@@ -235,10 +362,13 @@ function abete(c, x, y, h, col, neveCol, R, alto) {
   c.globalAlpha = 1;
 }
 
-/** Profilo della città: colle sinuoso, case con tetti innevati e finestre accese, due campanili. Sagoma fredda, senza contorni. */
-function paese(c, W) {
+/**
+ * Profilo della città: colle sinuoso, case con tetti innevati e finestre accese, campanili. Sagoma fredda, senza contorni.
+ * Le case iniziano da `da` (px del piano): a sinistra, dietro la slitta e l'albero, solo il colle con qualche abete.
+ */
+function paese(c, W, da) {
   const R = seeded(808);
-  const yc = (x) => ORIZ - (132 + 30 * Math.sin(x * 0.0046 + 1) + 14 * Math.sin(x * 0.013 + 2.4));
+  const yc = (x) => ORIZ - (132 + GFX.parallax.paese.alza + 30 * Math.sin(x * 0.0046 + 1) + 14 * Math.sin(x * 0.013 + 2.4));
   const colle = (dy, col) => {
     c.fillStyle = col;
     c.beginPath();
@@ -247,7 +377,9 @@ function paese(c, W) {
     c.lineTo(W + 6, VIEW_H);
     c.fill();
   };
-  colle(0, C.paese);
+  // colle a gradiente: scuro in cima (dietro le case), più chiaro verso l'orizzonte
+  const grColle = verticale(c, ORIZ - (132 + GFX.parallax.paese.alza + 44), ORIZ, C.paeseGrad[0], C.paeseGrad[1]);
+  colle(0, grColle);
   for (let i = 0; i < Math.round(W / 60); i++) {
     const x = R() * W;
     abete(c, x, yc(x) + 6, 30 + R() * 34, C.paese2, null, R);
@@ -290,9 +422,9 @@ function paese(c, W) {
       c.fillRect(bx - 2.5, by - h - th * 0.42, 5, 6);
     }
   };
-  const gruppi = Math.max(3, Math.round(W / 560));
+  const gruppi = Math.max(3, Math.round((W - da) / 560));
   for (let gi = 0; gi < gruppi; gi++) {
-    const gx = ((gi + 0.5) / gruppi) * W;
+    const gx = da + 150 + (gi / gruppi) * (W - da);
     if (gi % 2 === 1) { // campanile: alternati uno alto con la cuspide e uno più basso con la cupola
       const bx = gx + 14;
       const by = yc(bx) + 10;
@@ -329,23 +461,31 @@ function paese(c, W) {
     const n = 5 + Math.floor(R() * 3);
     for (let j = 0; j < n; j++) {
       const bx = gx + (j - (n - 1) / 2) * 40 + (R() - 0.5) * 16;
+      if (bx < da + 20) continue;
       casetta(bx, yc(bx) + 10 + R() * 6, 28 + R() * 24, 22 + R() * 24, 14 + R() * 18, R() < 0.5 ? C.paese2 : C.paese3);
     }
   }
-  colle(16, C.paese); // la neve del colle copre i piedi delle case
+  colle(16, grColle); // il colle davanti copre i piedi delle case
 }
 
-/** Pini alti subito dietro la scena: collina bassa e sinuosa, alberi con la base sulla linea del terreno di gioco. */
-function piniAlti(c, W) {
+/**
+ * Pini alti subito dietro la scena: collina bassa e sinuosa, alberi con la base sulla linea del terreno di gioco.
+ * Dietro la slitta (`xs`, px del piano) un gruppo fisso di quattro pini; da lì fino a `xa` (oltre la chioma
+ * dell'albero di gioco) nessun pino, così l'albero si legge bene; più a destra gruppi radi a caso.
+ * Un pino dritto ha la punta al centro della luna (`luna`, px del piano) nell'inquadratura di mira, con un gufo
+ * nero appollaiato in cima, in sagoma contro la luna.
+ */
+function piniAlti(c, W, xs, xa, luna) {
   const R = seeded(3131);
   const toni = C.piniLontani;
-  const yy = (x) => ORIZ - (34 + 20 * Math.sin(x * 0.0058 + 0.8) + 9 * Math.sin(x * 0.0139 + 2.2));
+  const su = GFX.parallax.pini.alza;
+  const yy = (x) => ORIZ - (34 + su + 20 * Math.sin(x * 0.0058 + 0.8) + 9 * Math.sin(x * 0.0139 + 2.2));
   c.beginPath();
   c.moveTo(-6, VIEW_H);
   for (let x = -6; x <= W + 6; x += 5) c.lineTo(x, yy(x));
   c.lineTo(W + 6, VIEW_H);
   c.closePath();
-  c.fillStyle = C.collinaPini;
+  c.fillStyle = verticale(c, ORIZ - (34 + su + 29), ORIZ, C.collinaPini[0], C.collinaPini[1]);
   c.fill();
   c.beginPath();
   for (let x = -6; x <= W + 6; x += 5) x === -6 ? c.moveTo(x, yy(x) + 1) : c.lineTo(x, yy(x) + 1);
@@ -353,9 +493,88 @@ function piniAlti(c, W) {
   c.lineWidth = 2;
   c.stroke();
   // alti 225–350 px alla vista di riferimento (le case di gioco ne misurano circa 265), stretti, a gruppi radi
+  // i pini dietro la slitta: il secondo più alto, gli altri più bassi e diversi tra loro
+  // ogni pino ha il suo gradiente: il tono scuro in cima, più chiaro verso la base
+  const tono = (y, h) => {
+    const t = toni[Math.floor(R() * 3)];
+    return verticale(c, y - h, y, t, mescola(t, C.piniBase, GFX.piniSchiarita));
+  };
+  const y0 = ORIZ + 2 - su;
+  // alone scuro sfumato attorno a ogni pino: la sagoma si stacca dalle montagne chiare dietro
+  // (dipinto una volta sola nel piano in cache, a ogni frame non costa nulla)
+  c.shadowColor = C.piniAlone;
+  c.shadowBlur = GFX.piniAlone;
+  for (const [ox, h] of [[-78, 250], [0, 340], [70, 280], [150, 215]]) abete(c, xs + ox, y0, h, tono(y0, h), C.piniNeve, R, true);
   for (let x = -30 + R() * 80; x < W + 60; x += R() < 0.25 ? 56 + R() * 36 : 230 + R() * 270) {
+    if (x > xs - 250 && x < Math.max(xs + 300, xa)) continue; // spazio libero attorno al gruppo e dietro l'albero
+    if (Math.abs(x - luna.x) < 150) continue; // lì c'è il pino della luna
     const h = 225 + R() * 125;
-    abete(c, x, ORIZ + 2, h, toni[Math.floor(R() * 3)], C.piniNeve, R, true);
-    if (R() < 0.45) abete(c, x + 38 + R() * 26, ORIZ + 2, h * (0.42 + R() * 0.2), toni[Math.floor(R() * 3)], C.piniNeve, R, true); // un giovane accanto
+    abete(c, x, y0, h, tono(y0, h), C.piniNeve, R, true);
+    if (R() < 0.45) {
+      const hg = h * (0.42 + R() * 0.2);
+      abete(c, x + 38 + R() * 26, y0, hg, tono(y0, hg), C.piniNeve, R, true); // un giovane accanto
+    }
+  }
+  c.shadowBlur = 0;
+  c.shadowColor = 'transparent';
+  // pino della luna (generatore a parte: gli altri pini restano identici)
+  const G = GFX.gufo;
+  const punta = luna.y + G.sotto / luna.s; // la punta poco sotto il centro: il gufo sta al centro della luna
+  const hl = y0 - punta;
+  const RL = seeded(77);
+  const xl = luna.x + G.dx / luna.s; // un po' fuori centro rispetto alla luna
+  abete(c, xl, y0, hl, verticale(c, punta, y0, toni[2], mescola(toni[2], C.piniBase, GFX.piniSchiarita)), C.piniNeve, RL, true, true);
+  const u = G.alto / luna.s / 34;
+  gufo(c, xl, punta, G.alto / luna.s);
+  return { gufo: { x: xl, y: punta - 24 * u, u } }; // centro degli occhi (px del piano): le pupille si disegnano a ogni frame
+}
+
+/**
+ * Gufo nero in sagoma, da cartone: tondo e paffuto, testa larga con i ciuffetti, alette e zampette, e due occhioni
+ * del colore della luna (le pupille, che si muovono, le disegna Backdrop.pupille). Zampe in (x, y), alto circa `h` px.
+ */
+function gufo(c, x, y, h) {
+  const u = h / 34;
+  const ov = (cx, cy, rx, ry, rot = 0) => {
+    c.beginPath();
+    c.ellipse(x + cx * u, y + cy * u, rx * u, ry * u, rot, 0, TAU);
+    c.fill();
+  };
+  c.fillStyle = C.gufo;
+  // ciuffetti tondi sulla testa, piegati in fuori
+  for (const sx of [-1, 1]) {
+    c.beginPath();
+    c.moveTo(x + sx * 4 * u, y - 30 * u);
+    c.quadraticCurveTo(x + sx * 9 * u, y - 31 * u, x + sx * 11.5 * u, y - 35.5 * u);
+    c.quadraticCurveTo(x + sx * 12 * u, y - 29 * u, x + sx * 10 * u, y - 25 * u);
+    c.closePath();
+    c.fill();
+  }
+  ov(0, -11, 10, 11.5); // pancia
+  ov(0, -24, 11.5, 9); // testa larga
+  for (const sx of [-1, 1]) ov(sx * 9.6, -11.5, 3.6, 7.5, sx * 0.28); // alette
+  for (const sx of [-1, 1]) for (const d of [-1.2, 0, 1.2]) ov(sx * 3.6 + d, 0.2, 0.9, 1.3); // dita delle zampette
+  // occhioni: bianco-luna, pupille grandi guardano un po' in basso verso il centro, punto di luce
+  c.fillStyle = C.luna;
+  for (const sx of [-1, 1]) ov(sx * 5, -24, 4.9, 5.1);
+  // (le pupille seguono lo sguardo: Backdrop.pupille, a ogni frame)
+  // becco piccolo a punta tra gli occhi, nel colore della luna più caldo
+  c.fillStyle = 'rgba(255,196,110,0.95)';
+  c.beginPath();
+  c.moveTo(x - 1.4 * u, y - 20.4 * u);
+  c.lineTo(x + 1.4 * u, y - 20.4 * u);
+  c.lineTo(x, y - 17.6 * u);
+  c.closePath();
+  c.fill();
+  // piumette della pancia: tre "v" appena accennate
+  c.strokeStyle = 'rgba(255,225,160,0.22)';
+  c.lineWidth = Math.max(1, 0.7 * u);
+  c.lineCap = 'round';
+  for (const [dx, dy] of [[-3, -11], [3, -11], [0, -7]]) {
+    c.beginPath();
+    c.moveTo(x + (dx - 1.4) * u, y + (dy - 1) * u);
+    c.lineTo(x + dx * u, y + dy * u);
+    c.lineTo(x + (dx + 1.4) * u, y + (dy - 1) * u);
+    c.stroke();
   }
 }

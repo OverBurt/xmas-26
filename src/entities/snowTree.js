@@ -9,12 +9,12 @@ const sign = () => (random() < 0.5 ? -1 : 1);
  * Albero alto con una chioma di cristalli di ghiaccio e neve al posto delle foglie.
  *
  * - Il tronco è sinuoso (curva con ondulazione) e rastremato; il corpo statico ne segue la forma
- *   con un quadrilatero per tratto, così il pacco rimbalza sul tronco vero.
+ *   con un quadrilatero per tratto, così il pacco rimbalza sul tronco vero. Il corpo arriva solo fino alla
+ *   prima biforcazione: più in alto, dove il tronco si apre nei rami, il pacco passa attraverso.
  * - I rami sono curve morbide (arco + ondulazione), rastremate dalla base alla punta (solo grafica).
  * - I cristalli NON sono corpi fisici: sono punti fissi controllati a mano a ogni step
  *   (centinaia di cristalli costano quasi nulla). Quando un pacco ci passa attraverso,
- *   il cristallo si stacca e cade (fiocchi e neve ondeggiando come foglie, gocce e stalattiti dritte),
- *   poi svanisce; ogni cristallo attraversato frena un po' il pacco (meno se il pacco è pesante).
+ *   il cristallo si stacca e cade rapido a terra, poi svanisce; ogni cristallo attraversato frena un po' il pacco (meno se il pacco è pesante).
  *   Il varco aperto resta libero per il lancio successivo.
  * - Forme dei cristalli: fiocco, stella, gemma, esagono (ai lati dei rami), goccia e stalattite
  *   (appese sotto), neve (cuscinetto appoggiato sopra). Frequenze in `TREE.shapes`.
@@ -33,19 +33,29 @@ export class SnowTree {
     this.base = { x, y: GROUND_Y };
     this.top = at(this.trunk, trunkH / (trunkH + 1.5));
 
+    const circles = def.crown.map((c) => ({ x: x + c.dx, y: this.top.y + c.dy, r: c.r }));
+    this.circles = circles;
+    this.branches = buildBranches(this.trunk, x, this.top.y, circles);
+
+    // Corpo solido solo fino alla prima biforcazione (il ramo principale più basso): sopra, tra i rami,
+    // il pacco passa attraverso e stacca i cristalli.
+    this.forkY = Math.min(...this.branches.filter((b) => b.level === 0).map((b) => b.pts[0].y));
     const body = pw.world.createBody({ type: 'static' });
-    for (let i = 0; i < this.trunk.pts.length - 1; i++) {
+    const pts = this.trunk.pts;
+    for (let i = 0; i < pts.length - 1 && pts[i].y < this.forkY; i++) {
       const a = side(this.trunk, i);
-      const b = side(this.trunk, i + 1);
+      let b = side(this.trunk, i + 1);
+      if (pts[i + 1].y > this.forkY) {
+        // ultimo tratto tagliato all'altezza della biforcazione
+        const u = (this.forkY - pts[i].y) / (pts[i + 1].y - pts[i].y);
+        const mix = (p, q) => ({ x: p.x + (q.x - p.x) * u, y: p.y + (q.y - p.y) * u });
+        b = { l: mix(a.l, b.l), r: mix(a.r, b.r) };
+      }
       const quad = [a.l, a.r, b.r, b.l].map((p) => new Vec2(p.x, p.y));
       body.createFixture({ shape: new Polygon(quad), friction: 0.6 });
     }
     body.setUserData({ kind: 'tree' });
     this.body = body;
-
-    const circles = def.crown.map((c) => ({ x: x + c.dx, y: this.top.y + c.dy, r: c.r }));
-    this.circles = circles;
-    this.branches = buildBranches(this.trunk, x, this.top.y, circles);
 
     this.crystals = growCrystals(this.branches, def.spacing ?? TREE.spacing);
     const xs = this.crystals.map((c) => c.x);
@@ -61,9 +71,11 @@ export class SnowTree {
    * il pacco non "salta" i cristalli.
    * @param {import('planck').Body[]} gifts
    * @param {Map} prev posizioni prima dello step (PhysicsWorld.prev)
+   * @returns {number} cristalli staccati in questo step
    */
   collide(gifts, prev) {
     const b = this.bounds;
+    let tot = 0;
     for (const g of gifts) {
       const p = g.getPosition();
       const q = prev.get(g) || p;
@@ -92,17 +104,19 @@ export class SnowTree {
         const heavy = c.shape === 'goccia' || c.shape === 'stalattite';
         this.falling.push({
           ...c,
-          // spinta iniziale nella direzione del pacco, poi caduta lenta ondeggiante (o dritta se pesante)
+          // spinta iniziale nella direzione del pacco, poi caduta rapida a terra (update)
           vx: v.x * TREE.push * rand(0.5, 1),
           vy: v.y * TREE.push * rand(0.5, 1) + rand(0, 0.6),
-          spin: heavy ? rand(-1, 1) : rand(-3, 3),
-          phase: rand(0, Math.PI * 2),
-          sway: heavy ? rand(0.05, 0.15) : rand(0.5, 1.1),
-          fall: heavy ? TREE.fallSpeed * TREE.heavyFall : TREE.fallSpeed,
-          life: rand(TREE.fallLife * 0.7, TREE.fallLife * 1.2),
+          spin: heavy ? rand(-1, 1) : rand(-4, 4),
+          life: TREE.fallLife,
         });
+        // tre estrazioni a vuoto: la sequenza del generatore resta quella di prima (fratture e misure identiche)
+        random();
+        random();
+        random();
       }
       if (hits) {
+        tot += hits;
         this.knocked += hits;
         // Ogni cristallo frena il pacco; il pacco pesante perde meno velocità.
         const keep = Math.max(0, 1 - TREE.drag / g.getMass()) ** hits;
@@ -110,24 +124,33 @@ export class SnowTree {
         g.setLinearVelocity(new Vec2(v.x * keep, v.y * keep));
       }
     }
+    return tot;
   }
 
-  /** Cristalli che cadono (tempo reale). */
+  /**
+   * Cristalli staccati (tempo reale): cadono rapidi per gravità, girando un poco; arrivati a terra si fermano
+   * e svaniscono in TREE.groundFade secondi.
+   */
   update(dt) {
     const f = this.falling;
     let j = 0;
     for (let i = 0; i < f.length; i++) {
       const c = f[i];
       c.life -= dt;
-      if (c.life <= 0 || c.y < GROUND_Y - 0.2) continue;
-      // attrito dell'aria forte: la velocità tende alla caduta lenta, con ondeggiamento laterale
-      const k = Math.min(1, TREE.airDrag * dt);
-      c.vx += (0 - c.vx) * k;
-      c.vy += (-c.fall - c.vy) * k;
-      c.phase += dt * 3;
-      c.x += (c.vx + Math.sin(c.phase) * c.sway) * dt;
-      c.y += c.vy * dt;
-      c.rot += (c.spin + Math.cos(c.phase) * 1.5 * c.sway) * dt;
+      if (c.life <= 0) continue;
+      if (!c.aTerra) {
+        c.vy -= TREE.fallGravity * dt;
+        c.vx *= Math.max(0, 1 - 1.5 * dt);
+        c.x += c.vx * dt;
+        c.y += c.vy * dt;
+        c.rot += c.spin * dt;
+        const suolo = GROUND_Y + c.size * 0.35;
+        if (c.y <= suolo) {
+          c.y = suolo;
+          c.aTerra = true;
+          c.life = Math.min(c.life, TREE.groundFade);
+        }
+      }
       f[j++] = c;
     }
     f.length = j;
@@ -290,7 +313,7 @@ function growCrystals(branches, step) {
   const out = [];
   const add = (shape, x, y, big = false) => {
     const [a, b] = SIZE[shape];
-    const size = rand(a, b) * (big ? 1.3 : 1);
+    const size = rand(a, b) * (big ? 1.3 : 1) * TREE.crystalScale;
     const hanging = shape === 'goccia' || shape === 'stalattite';
     out.push({ shape, x, y, size, rot: hanging ? 0 : rand(0, Math.PI * 2), k: random(), alive: true });
     return size;
@@ -308,13 +331,13 @@ function growCrystals(branches, step) {
         // appesa sotto il ramo: il centro sta sotto il bordo inferiore
         const [a, z] = SIZE[shape];
         const s = rand(a, z);
-        const drop = shape === 'stalattite' ? s / 2 : s * 1.4;
-        out.push({ shape, x: p.x, y: p.y - w / 2 - drop, size: s, rot: 0, k: random(), alive: true });
+        const drop = shape === 'stalattite' ? s / 2 : s * 1.4; // posizione dalla misura base: il gioco non cambia
+        out.push({ shape, x: p.x, y: p.y - w / 2 - drop, size: s * TREE.crystalScale, rot: 0, k: random(), alive: true });
       } else if (shape === 'neve') {
         // cuscinetto appoggiato sopra il ramo
         const [a, z] = SIZE.neve;
         const s = rand(a, z);
-        out.push({ shape, x: p.x, y: p.y + w / 2 + s * 0.55, size: s, rot: rand(-0.3, 0.3), k: random(), alive: true });
+        out.push({ shape, x: p.x, y: p.y + w / 2 + s * 0.55, size: s * TREE.crystalScale, rot: rand(-0.3, 0.3), k: random(), alive: true });
       } else {
         const ang = angleAt(b, t);
         const off = rand(0.1, 0.22) * sd;

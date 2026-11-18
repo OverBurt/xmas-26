@@ -74,6 +74,46 @@ canvas#game {
 #controls button.icona svg { display: block; }
 #controls button.icona.spento { color: rgba(255, 255, 255, 0.55); }
 
+/* Pannello audio sotto il pulsante: per Musica ed Effetti un interruttore e il volume */
+#audio-pannello {
+  position: absolute;
+  top: 58px;
+  right: 12px;
+  z-index: 5;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #0a0e2c;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  font: 600 14px/1 ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif;
+}
+#audio-pannello[hidden] { display: none; }
+#audio-pannello .riga { display: flex; align-items: center; gap: 12px; }
+#audio-pannello .interruttore {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 112px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(60, 74, 138, 0.55);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#audio-pannello .interruttore svg { display: block; flex: none; }
+#audio-pannello .riga.spento .interruttore { background: rgba(9, 13, 42, 0.6); color: rgba(255, 255, 255, 0.55); }
+#audio-pannello input[type='range'] {
+  width: 150px;
+  accent-color: #ffd36b;
+  touch-action: none;
+}
+#audio-pannello .riga.spento input[type='range'] { opacity: 0.45; }
+
 #rotate {
   display: none;
   position: fixed;

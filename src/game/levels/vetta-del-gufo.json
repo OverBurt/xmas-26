@@ -1,0 +1,279 @@
+{
+  "id": "vetta-del-gufo",
+  "name": "La vetta del gufo · tre camini sempre più in alto",
+  "bounds": {
+    "minX": -4.5,
+    "maxX": 54
+  },
+  "sleigh": {
+    "x": 0.3
+  },
+  "sling": {
+    "x": 5.4,
+    "y": 2.6
+  },
+  "gifts": [
+    "standard",
+    "small",
+    "big",
+    "standard",
+    "small"
+  ],
+  "previewDist": 28,
+  "stars": [
+    3250,
+    5200,
+    8600
+  ],
+  "camera": {
+    "aimCenter": 12,
+    "aimW": 26,
+    "aimMaxW": 44.4
+  },
+  "forts": [
+    {
+      "x": 13,
+      "arches": 2,
+      "storeys": 2,
+      "pierW": [
+        0.9,
+        0.8
+      ],
+      "archW": [
+        1.4,
+        1.3
+      ],
+      "pierRows": [
+        3,
+        2
+      ],
+      "upperRows": 1,
+      "cards": {
+        "levels": 3,
+        "half": 0.5,
+        "h": 1.2,
+        "floorH": 0.22,
+        "overhang": 0.35,
+        "topW": 1.3
+      }
+    },
+    {
+      "x": 33.9,
+      "y": 2.5,
+      "arches": 1,
+      "storeys": 2,
+      "pierW": [
+        0.8,
+        0.7
+      ],
+      "archW": [
+        1.2,
+        1.1
+      ],
+      "pierRows": [
+        3,
+        2
+      ],
+      "upperRows": 1,
+      "ice": {
+        "sculpture": "guglia"
+      }
+    }
+  ],
+  "snowmen": [
+    {
+      "fort": 1,
+      "cima": true
+    }
+  ],
+  "trees": [
+    {
+      "x": 29.6,
+      "trunkH": 2.4,
+      "trunkW": 0.5,
+      "spacing": 0.6,
+      "crown": [
+        {
+          "dx": 0,
+          "dy": 1.9,
+          "r": 1.7
+        },
+        {
+          "dx": -1.3,
+          "dy": 0.9,
+          "r": 1
+        },
+        {
+          "dx": 1.4,
+          "dy": 1.1,
+          "r": 1.2
+        },
+        {
+          "dx": 0.1,
+          "dy": 3.3,
+          "r": 1.1
+        }
+      ]
+    }
+  ],
+  "hills": [
+    {
+      "x0": 33.5,
+      "x1": 54,
+      "h": 2.5,
+      "slope": 3
+    },
+    {
+      "x0": 45,
+      "x1": 54,
+      "h": 5,
+      "slope": 3.2
+    }
+  ],
+  "houses": [
+    {
+      "x": 21.2,
+      "w": 5.2,
+      "h": 3.9,
+      "roof": 2.3,
+      "lean": 0.5,
+      "door": {
+        "h": 1.9,
+        "points": 2500
+      },
+      "windows": [
+        {
+          "y": 2.2,
+          "h": 1.4,
+          "points": 3000
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 0.9,
+        "top": 1.55,
+        "h": 1.3,
+        "tilt": 12,
+        "points": 1400
+      },
+      "stile": "baita",
+      "doorDrift": true,
+      "snowCap": true
+    },
+    {
+      "x": 38,
+      "y": 2.5,
+      "w": 4.6,
+      "h": 4.8,
+      "roof": 3,
+      "lean": 0.35,
+      "door": {
+        "h": 1.9,
+        "points": 1850
+      },
+      "windows": [
+        {
+          "y": 2.45,
+          "h": 1.5,
+          "points": 3000
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 0.8,
+        "top": 1.35,
+        "h": 1.2,
+        "tilt": 8,
+        "points": 3000
+      },
+      "stile": "casetta",
+      "snowCap": true
+    },
+    {
+      "x": 45.6,
+      "y": 5,
+      "w": 4.6,
+      "h": 4.8,
+      "roof": 3,
+      "lean": 0.35,
+      "door": {
+        "h": 1.9,
+        "points": 2100
+      },
+      "windows": [
+        {
+          "y": 2.45,
+          "h": 1.5,
+          "points": 3000
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 0.8,
+        "top": 1.35,
+        "h": 1.2,
+        "tilt": 8,
+        "points": 2200
+      },
+      "stile": "casetta"
+    }
+  ],
+  "pines": [
+    {
+      "x": -2.2
+    }
+  ],
+  "reindeer": [
+    {
+      "x": 27.9,
+      "pose": "fronte"
+    },
+    {
+      "x": 50.9,
+      "y": 5,
+      "pose": "fronte"
+    },
+    {
+      "x": 52.6,
+      "y": 5,
+      "pose": "bruca",
+      "facing": -1
+    }
+  ],
+  "decor": [
+    {
+      "type": "lampione",
+      "x": -4.02
+    },
+    {
+      "type": "cartello",
+      "x": 8.6
+    },
+    {
+      "type": "cespuglio",
+      "x": 20.3,
+      "k": 0.9
+    },
+    {
+      "type": "slittino",
+      "x": 31.6
+    }
+  ],
+  "stones": [
+    [
+      7.2,
+      -0.07,
+      0.2
+    ],
+    [
+      32.2,
+      0.9,
+      0.17
+    ],
+    [
+      44,
+      3.6,
+      0.2
+    ]
+  ]
+}

@@ -1,5 +1,5 @@
 import { Box, Vec2 } from 'planck';
-import { VIEW_W, VIEW_H, MAX_DPR, SLING, FAST } from './config.js';
+import { VIEW_W, VIEW_H, MAX_DPR, SLING } from './config.js';
 import { startLoop } from './core/loop.js';
 import { attachInput } from './core/input.js';
 import { setupFullscreen } from './core/fullscreen.js';
@@ -62,7 +62,7 @@ const params = new URLSearchParams(location.search);
 const game = new Game(findLevel(params.get('level') || store.get('xmas-level', null)));
 
 // Audio sintetizzato (src/audio/): si sblocca al primo tocco, pulsante muto e tasto M
-const audio = avviaAudio(game, { button: document.getElementById('muto-btn') });
+const audio = avviaAudio(game, { button: document.getElementById('muto-btn'), pannello: document.getElementById('audio-pannello') });
 
 // Miglior punteggio per livello (solo su questo dispositivo)
 game.on('fine', (s) => {
@@ -112,10 +112,13 @@ levelsEl.addEventListener('click', (e) => {
   closeLevels();
 });
 
+/** Ultima posizione del mouse o del dito (px logici): la guarda il gufo sulla luna. */
+let puntatore = null;
 attachInput(canvas, {
   down: (p) => game.pointerDown(p),
   move: (p) => game.pointerMove(p),
   up: (p) => game.pointerUp(p),
+  hover: (p) => { puntatore = p; },
 });
 
 /** Debug: sveglia tutte le lastre senza urti (test di stabilità). */
@@ -166,19 +169,9 @@ const perf = {
   worstFrameMs: 0, // intervallo più lungo tra due frame
   reset() { this.frames = 0; this.renderMs = 0; this.worstMs = 0; this.worstFrameMs = 0; },
 };
-/**
- * Un aggiornamento del loop = uno step fisico; se il giocatore ha accelerato (tocco durante volo/assestamento)
- * ne seguono altri, sempre a dt fisso: la sequenza di step è identica, cambia solo quanti per frame.
- * Oltre FAST.budgetMs di calcolo ci si ferma (si accelera meno, l'esito non cambia).
- */
+/** Un aggiornamento del loop = uno step fisico a dt fisso. */
 function update(dt) {
   game.step(dt);
-  if (game.passiPerAggiornamento <= 1) return;
-  const t0 = performance.now();
-  for (let i = 1; i < game.passiPerAggiornamento; i++) {
-    game.step(dt);
-    if (performance.now() - t0 > FAST.budgetMs) break;
-  }
 }
 
 startLoop({
@@ -188,7 +181,7 @@ startLoop({
     audio.aggiorna();
     ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
     const t0 = performance.now();
-    drawScene(ctx, game, alpha, { debug: DEBUG, hudTop: controlsBottom });
+    drawScene(ctx, game, alpha, { debug: DEBUG, hudTop: controlsBottom, puntatore });
     const ms = performance.now() - t0;
     perf.frames++;
     perf.renderMs += ms;

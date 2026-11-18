@@ -12,6 +12,9 @@ import { buildCrystalCluster } from './iceCrystal.js';
  *  - "torre":    prisma esagonale → lastra → prisma esagonale più piccolo → prisma triangolare in cima
  *  - "ponte":    due prismi esagonali come pile, una lastra sopra, una tenda ad A e due triangoli;
  *                i cristalli stanno sotto il ponte
+ *  - "guglia":   per i fortini stretti: due colonne sottili di cristallo con un grappolo di cristalli appuntiti
+ *                in mezzo e una lastra sopra, dove sta il pupazzo in cima (snowmen: "cima": true). Tutto di
+ *                ghiaccio fragile (ICE.fragile): basta un colpo leggero per farlo crollare.
  * @returns {{ bodies, top }}
  */
 export function buildIceSculpture(pw, kind, x0, x1, y) {
@@ -55,6 +58,17 @@ export function buildIceSculpture(pw, kind, x0, x1, y) {
     add(triPrism(pw, l + 0.35, yy, 0.6, 0.55));
     add(triPrism(pw, r - 0.35, yy, 0.6, 0.55));
     top = yy + 1.2;
+  } else if (kind === 'guglia') {
+    const n0 = bodies.length;
+    const colW = 0.3;
+    const colH = 1.15;
+    const half = Math.min(0.7, W / 2 - colW / 2);
+    add(hexPrism(pw, cx - half, y, colW, colH));
+    add(hexPrism(pw, cx + half, y, colW, colH));
+    add(buildCrystalCluster(pw, cx, y, 0.62));
+    const yy = slab(pw, bodies, cx - half - colW / 2 - 0.05, cx + half + colW / 2 + 0.05, y + colH + GAP);
+    for (const b of bodies.slice(n0)) b.getUserData().fragile = ICE.fragile;
+    top = yy;
   }
   return { bodies, top };
 }

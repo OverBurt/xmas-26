@@ -2,9 +2,10 @@ import { VIEW_W, VIEW_H } from '../config.js';
 
 /**
  * Pointer Events unificati (mouse, touch, penna) → callback in coordinate logiche.
- * Gestisce un solo puntatore attivo alla volta.
+ * Gestisce un solo puntatore attivo alla volta. `hover` (facoltativo) riceve ogni movimento, anche del mouse
+ * senza tasto premuto (lo sguardo del gufo).
  */
-export function attachInput(canvas, { down, move, up }) {
+export function attachInput(canvas, { down, move, up, hover }) {
   let activeId = null;
 
   const toLogical = (e) => {
@@ -19,11 +20,13 @@ export function attachInput(canvas, { down, move, up }) {
     if (activeId !== null) return;
     activeId = e.pointerId;
     canvas.setPointerCapture(e.pointerId);
+    hover?.(toLogical(e));
     down(toLogical(e));
     e.preventDefault();
   });
 
   canvas.addEventListener('pointermove', (e) => {
+    hover?.(toLogical(e));
     if (e.pointerId !== activeId) return;
     move(toLogical(e));
   });

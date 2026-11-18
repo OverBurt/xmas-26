@@ -10,7 +10,10 @@
     "test": "node tools/sim/check.mjs",
     "sim:grid": "node tools/sim/grid.mjs",
     "sim:score": "node tools/sim/score.mjs",
-    "sim:play": "node tools/sim/play.mjs"
+    "sim:play": "node tools/sim/play.mjs",
+    "musica": "node tools/audio/registra-musica.mjs",
+    "phone:consumi": "node tools/phone/consumi.mjs --giri 3",
+    "phone:fisica": "node tools/phone/fisica.mjs --giri 3"
   },
   "dependencies": {
     "planck": "^1.5.1"

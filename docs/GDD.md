@@ -352,6 +352,97 @@ Nessun cambio di comportamento: stessa fisica, stesse regole, stesso disegno (tr
 
 - Verifica del thread principale su M5: griglia identica al riferimento, `npm test` e build ok; in Chrome sul Mac pulsante muto presente, etichette tappate col fiocco, schermata "Buone Feste!". Accettata la correzione della pausa delle renne contata in tempo di fisica (necessaria perché il volo accelerato dia lo stesso punteggio; nelle simulazioni prima la renna ignorava ogni colpo successivo). **Non ascoltato e non provato sull'S21** (notte): da sentire volumi, verso delle renne e crolli; da misurare il volo accelerato sul telefono.
 
+### Ritocchi dopo la prova di M5 (18/11/2026)
+- **Albero**: il corpo solido del tronco arriva solo alla prima biforcazione (il ramo principale più basso, ~2.1 m); sopra, tra i rami, il pacco passa e stacca i cristalli. Verificato: pacco tirato a 1.9 m si ferma sul tronco, a 2.5–3.2 m passa. La griglia dei tiri resta identica; il ricalcolo dei punti porta la porta della casa A da 3000 a 2900 (stelle invariate).
+- **Elastico**: volume più che dimezzato (0.025 → 0.011) e timbro comico: voce nasale tipo kazoo con vibrato d'intonazione e "vocale" che si apre tirando, più uno squittio di gomma a ogni scatto di tensione.
+- **Musica**: dopo il ritornello c'è la strofa (16 battute, accordi Do/Fa/Sol, scalette del basso verso il Fa), poi le 2 battute di respiro.
+- **Parallasse**: nell'inquadratura di mira dietro la slitta c'è un gruppo fisso di tre pini; le case del paese iniziano oltre la chioma dell'albero (`GFX.paeseMargine`), dietro la slitta e l'albero resta solo il colle con qualche abete. Le posizioni si calcolano dal punto del mondo all'inquadratura di mira del livello (`level.camera`).
+- **Luna** più in alto (y 215 → 165 px, poi 110).
+- **Montagne lontane** schiacciate in verticale (vette al 62%) con il fondo delle valli alzato a 110 px sopra l'orizzonte: una catena continua e più bassa dietro le montagne medie (`GFX.montiForma`).
+- Sfondo alzato ancora: luna a y 110 px, valli delle montagne lontane a 165 px e medie a 70 px sopra l'orizzonte, profilo del paese +45 px e pini dietro la scena +35 px (`alza` in `GFX.parallax`).
+- Tolto il piano delle colline morbide dietro il paese: lo sfondo ora ha 4 piani (montagne lontane, medie, paese, pini).
+- Montagne medie (le più vicine) schiacciate al 55% e arrotondate (`tondo` 0.7: profilo a campana, neve senza dentelli), valli a 85 px poi alzate a 165 px: più morbide di quelle lontane.
+- Pini dietro la scena: il gruppo dietro la slitta ora è di quattro (il quarto era dietro l'albero di gioco) e fino oltre la chioma dell'albero non ci sono altri pini. Montagne con il gradiente rovesciato: scure in cima e chiare alla base, così il paese e i pini scuri davanti risaltano (`GFX.colors.monti`).
+- Gradiente scuro in cima e chiaro alla base anche sul colle del paese, sulla collina dei pini e su ogni pino dietro la scena. Le montagne medie (provato e scartato un profilo a dorsali collinari) restano quelle tonde, traslate di 140 px a sinistra (`sposta` in `GFX.montiForma`).
+- **Pino della luna con il gufo**: nel piano dei pini un pino dritto ha la punta al centro della luna nell'inquadratura di mira (posizione calcolata dalla luna e dall'inquadratura, non a mano); in cima un gufo nero in sagoma da cartone (tondo, testa larga con i ciuffetti, alette, zampette, occhioni del colore della luna con pupille e punto di luce) (`GFX.gufo`, colore `GFX.colors.gufo`). Il pino che prima copriva la luna a caso è tolto. Le pupille del gufo si disegnano a ogni frame (`Backdrop.pupille`) e guardano il pacco in volo, altrimenti il mouse o il dito (`hover` in `core/input.js`), con un movimento morbido.
+- Cielo più scuro, sempre con il solo gradiente verticale (provato e scartato un gradiente radiale).
+- Pini dietro la scena più scuri (toni quasi neri, schiarita verso la base ridotta a 0.1, `GFX.piniSchiarita`) con la neve più chiara e un alone scuro sfumato attorno a ogni pino (`GFX.piniAlone`, dipinto una volta nel piano in cache): le sagome si staccano dalle montagne invece di impastarsi.
+- **Consegna**: l'apertura centrata non si illumina più; il punteggio ("+3.000") vola via ben visibile: entra con un rimbalzo elastico, grande (54 px) con alone dorato, ombra e bordo scuro, sale veloce rallentando con una leggera deriva verso l'esterno della casa e svanisce ingrandendosi (2.2 s). Stesso stile, in rosso, per i punti tolti dalle renne.
+- Cristalli dell'albero disegnati più grandi del 30% (`TREE.crystalScale`); il raggio di contatto resta quello di prima, il gioco non cambia. La stellina ora è fredda come gli altri cristalli (bianco e azzurro). I cristalli colpiti cadono rapidi per gravità (`TREE.fallGravity`), a terra si fermano e svaniscono in 0.6 s (`TREE.groundFade`); al distacco un tintinnio lieve e acuto (evento `cristalli`, al massimo uno ogni 0.07 s, `AUDIO.crystalGain`). La griglia dei tiri resta identica a quella di riferimento.
+- **Pannello Buone Feste**: la neve sul bordo è lo stesso cappello dei tetti (`cappello` in `snow.js`); le lucine spuntano da sotto la neve.
+
+### Consumi sul telefono, testi, musica registrata, costo della fisica (18/11/2026)
+- **Consumi per componente** (S21, scena ferma, `npm run phone:consumi`): Chrome ~184% di un core con tutto acceso, 148 con solo il cielo, 6 una pagina vuota. La parte fissa (presentare a 60 FPS un canvas 1536×720) pesa più di tutti i componenti insieme; poi audio ~22, corpi/pini/sfondo ~11–12, terreno e testi ~8 (i testi costano ~1 ms per frame al thread del gioco), il resto sotto il rumore.
+- **Testi durante il lancio**: le etichette dei punti delle aperture svaniscono in 0.25 s quando parte il tiro e non si disegnano durante volo e assestamento; ricompaiono a tiro finito. Restano HUD e punteggio che vola via.
+- **Musica registrata**: non si sintetizza più nel gioco. `arrangiamento.js` (stesso arrangiamento, stonatura ridotta a 22 cent) si registra con `npm run musica` (OfflineAudioContext in Chrome headless, ciclo chiuso senza stacchi, AAC con afconvert) in `public/audio/musica.m4a` (855 KB, 140.69 s); il gioco la riproduce in loop da un solo buffer. Chrome su Mac e Android toglie il ritardo del codificatore: il buffer dura esattamente il ciclo, loop senza stacchi. Misura: l'audio passa da ~22 a ~17; del resto ~8 è il flusso audio verso l'altoparlante (processo browser) e ~5 il thread audio della pagina, presenti con qualsiasi suono; il compressore vale ~3, la riproduzione della musica ~1.5.
+- **Costo della fisica per componente** (S21, dentro la pagina senza disegno, `npm run phone:fisica`, ms per step = per frame): scena ferma 0.14, crollo del fortino 1.35 di media (p95 1.8, picchi 6 alle fratture), tiro nell'albero 0.16. Il **fortino** è quasi tutta la fisica: senza fortino 0.008 a scena ferma e 0.06 nel tiro; i suoi 2 pupazzi valgono circa un quarto del crollo (1.35 → 1.02). L'**albero** non pesa (i cristalli non sono corpi fisici: un pacco nella chioma costa come a scena ferma); renne, pini e case sono corpi statici, sotto il rumore. Con il volo accelerato (4 step per frame) il crollo arriva a ~5.4 ms per frame, ancora sotto i 16.7 ms.
+
+### Prova: fortino stretto con la guglia di ghiaccio (18/11/2026)
+- Livello di prova `prova-guglia` (copia del villaggio, Il villaggio non cambia): fortino ad arcate stretto (1 arcata × 2 piani, largo 2.8 m invece di 5.5) con in cima la scultura **"guglia"**: due colonne sottili di cristallo, un grappolo di cristalli appuntiti in mezzo e una lastra sopra, dove sta un pupazzo (`snowmen: [{fort: 0, cima: true}]`).
+- Tutto il ghiaccio della guglia è **fragile** (`ICE.fragile` = 0.3: soglia di rottura al 30%): un pacco grande la abbatte già a 3 m/s, il piccolo da 8 m/s; il pupazzo cade e si rompe. Stabile da solo (0.8 cm, nessuna rottura).
+- Griglia dei tiri: con il fortino stretto compaiono 4 tiri tesi validi (prima 0) e più consegne in tutte le aperture: il fortino protegge meno.
+
+### Secondo albero di cristalli e radici (18/11/2026)
+- **Radici**: alla base degli alberi di cristalli ora ci sono quattro radici curve e rastremate (due per lato, una lunga e una corta) unite al tronco con lo stesso contorno, e un cumulo di neve al piede da cui spuntano; niente più taglio netto sul terreno (solo grafica, `treeDraw.js`).
+- **Il villaggio**: il pino tra le due case è sostituito da un albero di cristalli piccolo (x 32.6, tronco 1.5 m, chioma ~2 m). Punti rigenerati con la difficoltà misurata: porta B 1350 → 1300, prima stella 2300 → 2250 (le altre aperture e stelle invariate).
+- **Prova guglia**: aggiunto lo stesso albero piccolo (x 33.7) e il pino spostato a 31.5, verso la casa A.
+- **Terreno più ondulato** (solo grafica, la fisica resta piatta): il bordo della neve ha cumuli morbidi fino a ~20 cm sopra la linea d'appoggio con un filo d'ombra azzurra sotto la cresta, e tre fasce di neve più in basso con onde più ampie e frequenti (`GFX.terreno`).
+- Albero piccolo del villaggio spostato a x 33.4 (punti rigenerati: tornano porta B 1350 e prima stella 2300). Montagne vicine: aggiunto un rilievo tondo innevato a sinistra (x 130 px nell'inquadratura di mira) e spostata di 120 px a destra la vetta alta che stava a 449 px, le altre ferme (`vette` e `spostaVette` in `GFX.montiForma`; posizioni e indici delle vette in console con `__vetteMedie`). Montagne in fondo: la seconda vetta da sinistra alzata di 120 (`alzaVette`), ora supera la quota della neve e ha una spruzzatina in cima (`__vetteLontane` per gli indici). Le montagne in fondo hanno ora forme diverse (`varieta`): aguzza a fianchi concavi, altopiano, asimmetrica (un fianco ripido e uno lungo), doppia con una sella, tonda; la forma viene da un generatore a parte, posizioni e altezze non cambiano. Tolta la vetta che nell'inquadratura di mira stava sotto la luna (`togliVette: [3]`): la luna con il gufo si staglia sulla valle. Nelle montagne in fondo, tra le due colline vicine sotto la luna, spunta un piccolo promontorio innevato dalla forma realistica (`roccia`: asimmetrico, con una spalla sul fianco lungo e piccole irregolarità; x 1005, `vette` con `forma`).
+
+### Tolto il "tocca per accelerare" (18/11/2026)
+- Su richiesta dell'utente il tocco durante volo e assestamento non accelera più la simulazione: tolti `Game.accelera`, i passi extra nel loop, l'indicatore ▶▶, il suggerimento, l'evento e il suono `accelera`, la costante `FAST`. Un tocco in volo non fa nulla; il turno finisce a pacchi fermi come sempre.
+
+### Case diverse e cristalli al vento (18/11/2026)
+- **Due case diverse** (campo `stile` delle case, solo disegno, più la geometria nel JSON):
+  - casa A **baita** (invariata): larga 6.2 m, legno viola, tetto a squame, ghirlanda sul timpano, tre locali (soggiorno con caminetto e albero, cameretta, stanza del gatto);
+  - casa B **casetta** (sulla collina): alta e stretta (4.6 × 4.8 m, tetto 3 m più ripido, pareti quasi dritte), legno azzurro, tegole rosse a file, oblò illuminato sul timpano, camino di pietra più stretto (0.8 → 1.35 m) e più basso sulla falda (pos 0.4); due locali: cucina (stufa smaltata con la pentola che fuma, tavola a quadretti con la torta, mensola con i barattoli, il cane che dorme sotto la tavola) e soffitta (carta a righe, libreria, sedia a dondolo con il gomitolo, lampada a stella).
+  - Tavolozze in `GFX.colors.stiliCasa`. Punti rigenerati con la difficoltà misurata: invariati (camino B resta 3000 anche più stretto; stelle 2300/4900/8700). Stesse case nella prova guglia.
+- **Cristalli al vento**: i cristalli degli alberi ondeggiano lievemente come foglie (ognuno con la sua fase, più una raffica lenta che attraversa la chioma; in alto si muovono di più; gocce e stalattiti dondolano). Solo disegno: le posizioni dei contatti non cambiano (`TREE.vento`).
+- **Vetri sempre rotti dalla consegna**: ogni zona di porta e finestra conosce il suo vetro; quando un pacco viene consegnato lì, il vetro si frantuma sempre (schegge, suono). Prima un pacco che rotolava piano verso la porta poteva essere consegnato prima di toccare il vetro (la zona della porta inizia poco prima del vetro) e il vetro restava intero. Verificato sulla griglia: 37 consegne da porte e finestre, 0 vetri rimasti interi. Punti invariati.
+- Prova guglia: il pino tra le case spostato subito dopo la casetta, sulla collina (x 44.3). Il sasso che stava sotto le radici dell'albero piccolo (x 33.9) ora è incastonato nel fianco della collina (x 36.6), in entrambi i livelli.
+
+### Tre livelli nuovi a difficoltà crescente (19/11/2026, punti ancora da tarare)
+Nati dal livello di prova con il fortino stretto e la guglia; sfondo identico in tutti. Il selettore ora ha solo questi tre (i vecchi JSON restano nella cartella).
+| | 1 · Il borgo addormentato | 2 · Il bosco di cristallo | 3 · La vetta del gufo |
+|---|---|---|---|
+| Scena | 51 m, pianura + rialzo di 1.5 m | 67 m, due colline (2 m e 3.5 m) con avvallamento | 63 m, due gradoni (2.5 m e 5 m) |
+| Case | baita a terra (x 22), casetta sul rialzo (x 37.2) | casetta sulla prima collina (x 25.2), baita nell'avvallamento (x 46.4) | baita piccola a terra (x 21.2), casetta sul gradone (x 39.4), casetta in vetta (x 48.3) |
+| Ostacoli | albero piccolo, fortino con guglia tra le case | 3 alberi (grande, piccolo, medio), fortino con guglia, igloo con pupazzo davanti alla baita | fortino largo con castello di carte, fortino con guglia sul gradone, albero grande, pupazzo a terra |
+| Aperture tappate | 0 | 2 | 3 |
+| Renne | 1 | 2 | 3 |
+| Traiettoria | 100% | 70% | 45% |
+| Griglia (tiri validi tesi) | 219 | 1 | 10 |
+- Stabili (`npm test`: 0.8–1.2 cm, nessuna rottura). Tutte le aperture raggiungibili, anche la casa in vetta (camino 12 tiri della griglia, porta 20): non è servito alzare la potenza della fionda.
+- **Punti e stelle sono ancora quelli copiati dal livello di riferimento**: da rigenerare con `npm run sim:score` dopo l'approvazione dei livelli.
+- Per lo sfondo, il punto da cui iniziano le case del paese considera solo gli alberi dentro l'inquadratura di mira.
+- **Seconda stesura dopo la prova dell'utente** (la tabella sopra descrive la prima): (1) gli ostacoli ora coprono le aperture che pagano, così abbatterli conviene; (2) scene più corte e vista di mira che a tensione massima arriva all'ultima casa (`camera.aimMaxW` nel JSON: 42 / 47.5 / 50 m; prima sempre 38).
+  - Borgo (51 m): fortino con guglia a 1.3 m dalla baita (x 18.6 → casa a 22.6), casetta sul rialzo a 37.6.
+  - Bosco (56 m): due alberi dopo la fionda (9.8 e 14), una sola collina con il fortino con guglia sopra, davanti alla casetta (x 24.4); nell'avvallamento albero piccolo, igloo con pupazzo e baita (x 41.4).
+  - Vetta (58.5 m): fortino con carte davanti alla baita piccola, albero a 29.6, gradone da 33.5 con fortino e casetta (x 38), vetta da 45 con la casetta a 45.6.
+  - Poi, su richiesta: vista a fionda tesa più stretta nel bosco (`aimMaxW` 43: della baita lontana si vedono porta, finestra e camino) e nella vetta (44.4: l'ultimo camino è tagliato dal bordo destro); traiettoria mostrata più corta: bosco 50%, vetta 30% (prima 70% e 45%). Infine la traiettoria mostrata non è più una frazione del tempo di volo (cresceva con la forza del tiro) ma una **distanza dalla fionda** fissa per livello (`previewDist` nel JSON, metri in linea d'aria dal punto di lancio): borgo arco intero, bosco 12 m, vetta 7 m (poi allungate su richiesta: bosco 26 e poi 31 m, vetta 20, 25 e poi 28 m). Misurato a tensione 1.0 / 1.6 / 2.2: bosco 11.8 / 11.3 / 10.6 m, vetta 6.6 / 6.5 / 6.2 m (l'ultimo punto cade entro il limite).
+  - Misure (`sim:grid`, `sacr.mjs`): tiri tesi validi 63 / 1 / 8; dopo un lancio di demolizione i tiri standard validi passano ×1.5 nel borgo (punti medi 330 → 622), ×3 nel bosco, ×2 nella vetta. Stabili (9 ok).
+
+### Renne da cartone animate a fotogrammi (19/11/2026)
+- Su richiesta dell'utente (riferimento di stile: l'immagine di renne da cartone incollata il 18/11, non ricalcata): renna ridisegnata a codice in `render/reindeerCartoon.js`: zampe lunghe e sottili, muso lungo con il nasone scuro, sorriso bianco, occhi vicini, corna fini con i rametti, pancia chiara.
+- Animazione a fotogrammi (7 al secondo, senza interpolazione), una pellicola di pose per tipo: `bruca` a quattro zampe (mastica a testa bassa con l'erba in bocca, alza il muso, sbatte gli occhi, scodinzola, scalpita); `fronte` in piedi su due zampe (ferma, sbatte gli occhi, saluta, mani sui fianchi, balletto). Colpita: urto, salto a zampe larghe con la lingua fuori e "!", atterraggio tremante.
+- Il corpo fisico non cambia. Interruttore `GFX.renne`: l'utente ha poi scelto di tenere per ora la renna di prima, quindi vale 'classica' (`reindeerDraw.js`); 'cartone' riattiva quella nuova.
+- Nessuna renna nella zona di lancio: nella Vetta del gufo quella dopo la fionda è andata sulla vetta (ora una a terra dopo la baita e due in vetta).
+
+### Pacchi non consegnati che svaniscono (19/11/2026)
+- A fine turno (scena ferma, prima del pacco successivo o del riepilogo) ogni pacco lanciato e non consegnato implode: si rimpicciolisce girando (0.22 s) e lascia una nuvoletta di sbuffi bianchi che si allarga, sale appena e si dissolve (0.75 s), con un "Fiu!" di vento (soffio in un passa-banda stretto che sale di tono, più un fischio leggero; evento `svanito`). Il corpo viene tolto dal mondo: i pacchi fermi non restano più come ostacoli e non possono essere consegnati da un urto successivo. Tempi in `TURN.puffImplode` / `TURN.puffCloud`. La sparizione parte appena la scena è ferma; poi il gioco aspetta ancora 1 s (`TURN.afterPause`) prima di tornare all'inquadratura di mira o al riepilogo, così si vede il pacco svanire (misurato: 1.02 s dalla nuvoletta al ritorno, nuvoletta già dissolta).
+
+### Taratura dei tre livelli e prova sull'S21 (19/11/2026)
+Punti dalle difficoltà misurate (`sim:score`, neve compresa), stelle da partite simulate (`sim:play --stars`: 1ª = le due aperture meno pagate, 2ª = mediana del giocatore medio, 3ª = suo 90° percentile).
+| Apertura | Borgo | Bosco | Vetta |
+|---|---|---|---|
+| A porta / finestra / camino | 850 / 3000 / 700 | 1300 / 3000 / 1900 | 2500 / 3000 / 1400 |
+| B porta / finestra / camino | 700 / 2100 / 1350 | 2300 / 3000 / 2050 | 1850 / 3000 / 3000 |
+| C porta / finestra / camino | — | — | 2100 / 3000 / 2200 |
+| Stelle | 1400 / 3400 / 5800 | 3200 / 5700 / 8600 | 3250 / 5200 / 8600 |
+| Giocatore medio: stelle 0/1/2/3 | 19 / 32 / 40 / 9 % | 19 / 34 / 38 / 9 % | 15 / 36 / 43 / 7 % |
+- S21 (Chrome, qualità alta, canvas 1536×720): i tre livelli partono e si giocano; durante un tiro di demolizione con il pacco grande FPS minimo 52–54 (lo schermo in quel momento andava a 73–79 Hz variabili; a 60 Hz il gioco tiene 60), fisica al massimo 1.8–3.9 ms per frame, disegno peggiore 4.4–5.7 ms. Audio e musica registrata attivi.
+- Pannello di fine livello: più aria tra la neve del bordo e "Buone Feste!" (il pannello parte più in alto, contenuti 36 px più giù).
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente

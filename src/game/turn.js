@@ -42,6 +42,7 @@ export function nextTurn(g) {
   // L'ultimo pacco deve essere fermo prima del riepilogo: una consegna tardiva deve contare.
   if (g.giftsLeft === 0 && !giftsResting(g)) return;
   g.current = null;
+  svanisci(g);
   // Il livello termina solo quando non ci sono più pacchi da lanciare.
   if (g.giftsLeft === 0) {
     endLevel(g);
@@ -49,6 +50,21 @@ export function nextTurn(g) {
     g.setState('ready');
     g.aimView();
   }
+}
+
+/**
+ * I pacchi non consegnati, ormai fermi, implodono in una nuvoletta che si dissolve (disegno: sceneDraw.js):
+ * il corpo viene tolto dal mondo (siamo dopo lo step, non in una callback). Evento 'svanito' per ogni pacco.
+ */
+function svanisci(g) {
+  for (const b of g.thrown) {
+    const p = b.getPosition();
+    const tipo = b.getUserData().type;
+    g.puffs.push({ x: p.x, y: p.y, angle: b.getAngle(), tipo, t: 0 });
+    g.pw.destroyBody(b);
+    g.emit('svanito', { tipo, x: p.x, y: p.y });
+  }
+  g.thrown = [];
 }
 
 /** Fine del livello: riepilogo, pulsanti del pannello, panoramica. Evento 'fine' (dati = riepilogo). */
@@ -80,6 +96,12 @@ export function updateTurn(g) {
     // Dopo una consegna la camera resta un attimo sulla casa per godersi i punti.
     const minSettle = g.deliveredThisTurn ? TURN.deliveryLinger : 0;
     const calm = g.pw.counts().awake === 0 || g.stateTime > TURN.maxSettle;
-    if (g.stateTime > minSettle && calm && giftsResting(g)) nextTurn(g);
+    // Scena ferma: i pacchi non consegnati svaniscono subito, poi si resta ancora TURN.afterPause a guardare
+    // prima di tornare all'inquadratura di mira (o al riepilogo).
+    if (g.fermoDa === null && g.stateTime > minSettle && calm && giftsResting(g)) {
+      g.fermoDa = g.stateTime;
+      svanisci(g);
+    }
+    if (g.fermoDa !== null && g.stateTime - g.fermoDa >= TURN.afterPause) nextTurn(g);
   }
 }

@@ -1,20 +1,23 @@
 import { AUDIO } from '../config.js';
 
 /**
- * Motore audio (Web Audio): contesto, bus, sblocco al primo gesto, muto, pausa con la pagina nascosta.
+ * Motore audio (Web Audio): contesto, bus, sblocco al primo gesto, volumi e muto separati di musica ed effetti,
+ * pausa con la pagina nascosta.
  *
  *   sorgenti → sfx ─┐
  *   sorgenti → mus ─┴→ master → compressore → uscita
  *
  * Il contesto nasce solo dentro un gesto dell'utente (regola dei browser): prima di allora `ctx` è null
- * e ogni richiesta di suono viene ignorata. Con il muto il contesto viene sospeso (niente lavoro inutile).
+ * e ogni richiesta di suono viene ignorata. Musica ed effetti hanno ciascuno acceso/spento e volume (`prefs`, salvate
+ * sul dispositivo); con entrambi spenti (`muto`) il contesto viene sospeso (niente lavoro inutile). Con gli effetti
+ * spenti non si sintetizza nessun effetto.
  * `stats` conta i suoni richiesti per nome e le voci contemporanee (per le prove: `xmas.audio.stats`).
  */
 export class Motore {
   constructor() {
     /** @type {AudioContext|null} */
     this.ctx = null;
-    this.muto = leggiMuto();
+    this.prefs = leggiPrefs(); // {musica: {on, vol}, effetti: {on, vol}}, vol 0–1
     this.voci = []; // istanti di fine delle voci di effetti in corso
     this.stats = { suoni: {}, maxVoci: 0, scartati: 0, creato: null };
     this.alSblocco = []; // funzioni da chiamare quando il contesto è pronto (es. avvio della musica)
@@ -53,7 +56,7 @@ export class Motore {
     this.master.gain.value = this.muto ? 0 : AUDIO.master;
     this.master.connect(this.comp);
     this.sfx = c.createGain();
-    this.sfx.gain.value = AUDIO.sfx;
+    this.sfx.gain.value = this.volEffetti;
     this.sfx.connect(this.master);
     this.mus = c.createGain();
     this.mus.gain.value = 0;
@@ -69,9 +72,29 @@ export class Motore {
     }
   }
 
+  /** Musica ed effetti entrambi spenti: il contesto resta sospeso. */
+  get muto() {
+    return !this.prefs.musica.on && !this.prefs.effetti.on;
+  }
+
+  /** Fattore di volume scelto per la musica (0 se spenta). */
+  get volMusica() {
+    return this.prefs.musica.on ? this.prefs.musica.vol : 0;
+  }
+
+  /** Guadagno del bus degli effetti (0 se spenti). */
+  get volEffetti() {
+    return AUDIO.sfx * (this.prefs.effetti.on ? this.prefs.effetti.vol : 0);
+  }
+
   /** Il motore può suonare adesso? */
   get attivo() {
     return !!this.ctx && !this.muto && this.ctx.state === 'running';
+  }
+
+  /** Si possono suonare effetti adesso? (con gli effetti spenti non si sintetizzano nemmeno) */
+  get effettiAttivi() {
+    return this.attivo && this.prefs.effetti.on;
   }
 
   get t() {
@@ -84,7 +107,7 @@ export class Motore {
    * Restituisce l'istante di fine prenotato (per liberare prima la voce con `liberaVoce`) oppure 0.
    */
   voce(nome, durata, prio = false) {
-    if (!this.attivo) return 0;
+    if (!this.effettiAttivi) return 0;
     const ora = this.t;
     this.voci = this.voci.filter((f) => f > ora);
     if (this.voci.length >= AUDIO.maxVoices && !prio) {
@@ -104,16 +127,33 @@ export class Motore {
     if (i >= 0) this.voci.splice(i, 1);
   }
 
-  /** Commuta il muto (pulsante e tasto M); la preferenza resta sul dispositivo. */
+  /** Spegne o riaccende tutto (tasto M): musica ed effetti insieme, i volumi restano. */
   impostaMuto(m) {
-    this.muto = m;
+    this.prefs.musica.on = !m;
+    this.prefs.effetti.on = !m;
+    this.applica();
+  }
+
+  /** Cambia acceso/spento (`on`) e/o volume (`vol`, 0–1) di un canale: 'musica' o 'effetti'. */
+  imposta(canale, { on, vol } = {}) {
+    const p = this.prefs[canale];
+    if (on !== undefined) p.on = on;
+    if (vol !== undefined) p.vol = Math.min(1, Math.max(0, vol));
+    this.applica();
+  }
+
+  /** Applica e salva le preferenze: guadagni, contesto sospeso se tutto è spento, avviso agli ascoltatori. */
+  applica() {
     try {
-      localStorage.setItem(AUDIO.storageKey, m ? '1' : '0');
+      localStorage.setItem(AUDIO.storageKey, JSON.stringify(this.prefs));
     } catch {}
+    const m = this.muto;
     if (this.ctx) {
-      const g = this.master.gain;
-      g.cancelScheduledValues(this.t);
-      g.setTargetAtTime(m ? 0 : AUDIO.master, this.t, 0.03);
+      const t = this.t;
+      for (const [g, v] of [[this.master.gain, m ? 0 : AUDIO.master], [this.sfx.gain, this.volEffetti]]) {
+        g.cancelScheduledValues(t);
+        g.setTargetAtTime(v, t, 0.03);
+      }
       if (m) setTimeout(() => this.muto && this.ctx.suspend().catch(() => {}), 150);
       else if (!document.hidden) this.ctx.resume().catch(() => {});
     }
@@ -128,10 +168,14 @@ export class Motore {
   }
 }
 
-function leggiMuto() {
+/** Preferenze salvate; dalla vecchia versione (solo muto '1'/'0') si passa a musica ed effetti insieme. */
+function leggiPrefs() {
+  const base = (on) => ({ musica: { on, vol: 1 }, effetti: { on, vol: 1 } });
   try {
-    return localStorage.getItem(AUDIO.storageKey) === '1';
-  } catch {
-    return false;
-  }
+    const v = localStorage.getItem(AUDIO.storageKey);
+    if (v === '1' || v === '0') return base(v === '0');
+    const p = JSON.parse(v);
+    if (p?.musica && p?.effetti) return { musica: { on: !!p.musica.on, vol: +p.musica.vol || 0 }, effetti: { on: !!p.effetti.on, vol: +p.effetti.vol || 0 } };
+  } catch {}
+  return base(true);
 }

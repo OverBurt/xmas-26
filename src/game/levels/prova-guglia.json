@@ -1,0 +1,263 @@
+{
+  "id": "prova-guglia",
+  "name": "Prova · fortino stretto con la guglia",
+  "bounds": {
+    "minX": -4.5,
+    "maxX": 58.5
+  },
+  "sleigh": {
+    "x": 0.3
+  },
+  "sling": {
+    "x": 5.4,
+    "y": 2.6
+  },
+  "gifts": [
+    "standard",
+    "small",
+    "big",
+    "standard",
+    "small"
+  ],
+  "preview": 1,
+  "stars": [
+    2300,
+    4900,
+    8700
+  ],
+  "camera": {
+    "aimCenter": 12,
+    "aimW": 26
+  },
+  "forts": [
+    {
+      "x": 17.85,
+      "arches": 1,
+      "storeys": 2,
+      "pierW": [
+        0.8,
+        0.7
+      ],
+      "archW": [
+        1.2,
+        1.1
+      ],
+      "pierRows": [
+        3,
+        2
+      ],
+      "upperRows": 1,
+      "ice": {
+        "sculpture": "guglia"
+      }
+    }
+  ],
+  "snowmen": [
+    {
+      "fort": 0,
+      "cima": true
+    }
+  ],
+  "trees": [
+    {
+      "x": 10.2,
+      "trunkH": 2.4,
+      "trunkW": 0.5,
+      "spacing": 0.6,
+      "crown": [
+        {
+          "dx": 0,
+          "dy": 1.9,
+          "r": 1.7
+        },
+        {
+          "dx": -1.3,
+          "dy": 0.9,
+          "r": 1
+        },
+        {
+          "dx": 1.4,
+          "dy": 1.1,
+          "r": 1.2
+        },
+        {
+          "dx": 0.1,
+          "dy": 3.3,
+          "r": 1.1
+        }
+      ]
+    },
+    {
+      "x": 33.7,
+      "trunkH": 1.5,
+      "trunkW": 0.36,
+      "spacing": 0.55,
+      "crown": [
+        {
+          "dx": 0,
+          "dy": 1.25,
+          "r": 1.05
+        },
+        {
+          "dx": -0.85,
+          "dy": 0.55,
+          "r": 0.65
+        },
+        {
+          "dx": 0.9,
+          "dy": 0.65,
+          "r": 0.7
+        },
+        {
+          "dx": 0.1,
+          "dy": 2.1,
+          "r": 0.65
+        }
+      ]
+    }
+  ],
+  "hills": [
+    {
+      "x0": 38,
+      "x1": 58.5,
+      "h": 3,
+      "slope": 3.5
+    }
+  ],
+  "houses": [
+    {
+      "x": 24.5,
+      "w": 6.2,
+      "h": 4.4,
+      "roof": 2.6,
+      "lean": 0.6,
+      "door": {
+        "h": 2.1,
+        "points": 2900
+      },
+      "windows": [
+        {
+          "y": 2.45,
+          "h": 1.65,
+          "points": 3000
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 0.95,
+        "top": 1.7,
+        "h": 1.4,
+        "tilt": 12,
+        "points": 950
+      },
+      "doorDrift": true,
+      "stile": "baita"
+    },
+    {
+      "x": 38.5,
+      "y": 3,
+      "w": 4.6,
+      "h": 4.8,
+      "roof": 3.0,
+      "lean": 0.35,
+      "door": {
+        "h": 1.9,
+        "points": 1350
+      },
+      "windows": [
+        {
+          "y": 2.45,
+          "h": 1.5,
+          "points": 3000
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 0.8,
+        "top": 1.35,
+        "h": 1.2,
+        "tilt": 8,
+        "points": 3000
+      },
+      "snowCap": true,
+      "stile": "casetta"
+    }
+  ],
+  "pines": [
+    {
+      "x": -2.2
+    },
+    {
+      "x": 44.3,
+      "y": 3
+    },
+    {
+      "x": 49.4,
+      "y": 3,
+      "h": 4.6
+    },
+    {
+      "x": 53.6,
+      "y": 3
+    },
+    {
+      "x": 56.8,
+      "y": 3
+    }
+  ],
+  "reindeer": [
+    {
+      "x": 46.2,
+      "y": 3,
+      "pose": "bruca",
+      "facing": 1
+    },
+    {
+      "x": 51.4,
+      "y": 3,
+      "pose": "fronte"
+    }
+  ],
+  "decor": [
+    {
+      "type": "lampione",
+      "x": -4.02
+    },
+    {
+      "type": "cartello",
+      "x": 13.3
+    },
+    {
+      "type": "cespuglio",
+      "x": 15.2,
+      "k": 0.9
+    },
+    {
+      "type": "cespuglio",
+      "x": 31.5,
+      "k": 0.8
+    },
+    {
+      "type": "slittino",
+      "x": 54.9,
+      "y": 3
+    }
+  ],
+  "stones": [
+    [
+      7.9,
+      -0.07,
+      0.2
+    ],
+    [
+      36.6,
+      0.55,
+      0.17
+    ],
+    [
+      41.2,
+      1.25,
+      0.2
+    ]
+  ]
+}

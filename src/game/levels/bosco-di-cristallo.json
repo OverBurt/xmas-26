@@ -1,0 +1,272 @@
+{
+  "id": "bosco-di-cristallo",
+  "name": "Il bosco di cristallo · tra gli alberi che tintinnano",
+  "bounds": {
+    "minX": -4.5,
+    "maxX": 51.5
+  },
+  "sleigh": {
+    "x": 0.3
+  },
+  "sling": {
+    "x": 5.4,
+    "y": 2.6
+  },
+  "gifts": [
+    "standard",
+    "small",
+    "big",
+    "standard",
+    "small"
+  ],
+  "previewDist": 31,
+  "stars": [
+    3200,
+    5700,
+    8600
+  ],
+  "camera": {
+    "aimCenter": 12,
+    "aimW": 26,
+    "aimMaxW": 43
+  },
+  "forts": [
+    {
+      "x": 19.9,
+      "arches": 1,
+      "storeys": 2,
+      "pierW": [
+        0.8,
+        0.7
+      ],
+      "archW": [
+        1.2,
+        1.1
+      ],
+      "pierRows": [
+        3,
+        2
+      ],
+      "upperRows": 1,
+      "ice": {
+        "sculpture": "guglia"
+      },
+      "y": 2
+    }
+  ],
+  "snowmen": [
+    {
+      "fort": 0,
+      "cima": true
+    }
+  ],
+  "trees": [
+    {
+      "x": 9.8,
+      "trunkH": 2.4,
+      "trunkW": 0.5,
+      "spacing": 0.6,
+      "crown": [
+        {
+          "dx": 0,
+          "dy": 1.9,
+          "r": 1.7
+        },
+        {
+          "dx": -1.3,
+          "dy": 0.9,
+          "r": 1
+        },
+        {
+          "dx": 1.4,
+          "dy": 1.1,
+          "r": 1.2
+        },
+        {
+          "dx": 0.1,
+          "dy": 3.3,
+          "r": 1.1
+        }
+      ]
+    },
+    {
+      "x": 14,
+      "trunkH": 1.92,
+      "trunkW": 0.4,
+      "spacing": 0.6,
+      "crown": [
+        {
+          "dx": 0,
+          "dy": 1.52,
+          "r": 1.36
+        },
+        {
+          "dx": -1.04,
+          "dy": 0.72,
+          "r": 0.8
+        },
+        {
+          "dx": 1.12,
+          "dy": 0.88,
+          "r": 0.96
+        },
+        {
+          "dx": 0.08,
+          "dy": 2.64,
+          "r": 0.88
+        }
+      ]
+    },
+    {
+      "x": 34.6,
+      "trunkH": 1.5,
+      "trunkW": 0.36,
+      "spacing": 0.55,
+      "crown": [
+        {
+          "dx": 0,
+          "dy": 1.25,
+          "r": 1.05
+        },
+        {
+          "dx": -0.85,
+          "dy": 0.55,
+          "r": 0.65
+        },
+        {
+          "dx": 0.9,
+          "dy": 0.65,
+          "r": 0.7
+        },
+        {
+          "dx": 0.1,
+          "dy": 2.1,
+          "r": 0.65
+        }
+      ]
+    }
+  ],
+  "igloos": [
+    {
+      "x": 38,
+      "r": 1.2,
+      "snowman": true
+    }
+  ],
+  "hills": [
+    {
+      "x0": 19.4,
+      "x1": 31.2,
+      "h": 2,
+      "slope": 2.8
+    }
+  ],
+  "houses": [
+    {
+      "x": 24.4,
+      "y": 2,
+      "w": 4.6,
+      "h": 4.8,
+      "roof": 3,
+      "lean": 0.35,
+      "door": {
+        "h": 1.9,
+        "points": 1300
+      },
+      "windows": [
+        {
+          "y": 2.45,
+          "h": 1.5,
+          "points": 3000
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 0.8,
+        "top": 1.35,
+        "h": 1.2,
+        "tilt": 8,
+        "points": 1900
+      },
+      "stile": "casetta",
+      "snowCap": true
+    },
+    {
+      "x": 41.4,
+      "w": 6.2,
+      "h": 4.4,
+      "roof": 2.6,
+      "lean": 0.6,
+      "door": {
+        "h": 2.1,
+        "points": 2300
+      },
+      "windows": [
+        {
+          "y": 2.45,
+          "h": 1.65,
+          "points": 3000
+        }
+      ],
+      "chimney": {
+        "pos": 0.4,
+        "bottom": 0.95,
+        "top": 1.7,
+        "h": 1.4,
+        "tilt": 12,
+        "points": 2050
+      },
+      "stile": "baita",
+      "doorDrift": true
+    }
+  ],
+  "pines": [
+    {
+      "x": -2.2
+    }
+  ],
+  "reindeer": [
+    {
+      "x": 30.2,
+      "y": 2,
+      "pose": "fronte"
+    },
+    {
+      "x": 49.5,
+      "pose": "bruca",
+      "facing": 1
+    }
+  ],
+  "decor": [
+    {
+      "type": "lampione",
+      "x": -4.02
+    },
+    {
+      "type": "cartello",
+      "x": 6.9
+    },
+    {
+      "type": "cespuglio",
+      "x": 33,
+      "k": 0.8
+    }
+  ],
+  "stones": [
+    [
+      7.4,
+      -0.07,
+      0.2
+    ],
+    [
+      17.6,
+      0.5,
+      0.17
+    ],
+    [
+      32.6,
+      0.7,
+      0.2
+    ]
+  ]
+}

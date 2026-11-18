@@ -231,7 +231,7 @@ export class Fracture {
     if (ud.kind === 'snowman') return SNOWMAN.splitImpulse;
     // la soglia scala con la densità: a parità di colpo un mattone più pesante non diventa più fragile
     if (ud.kind === 'snow') return ud.ball ? SNOWMAN.ballImpulse : SNOW.breakImpulse * SNOW.levelFactor ** ud.level * (ud.dens ?? 1);
-    if (ud.kind === 'ice') return ud.pieces ? ICE.breakImpulse * FRACTURE.levelFactor ** ud.level : Infinity;
+    if (ud.kind === 'ice') return ud.pieces ? ICE.breakImpulse * FRACTURE.levelFactor ** ud.level * (ud.fragile ?? 1) : Infinity;
     return Infinity;
   }
 

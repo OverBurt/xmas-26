@@ -71,8 +71,10 @@ export function campana(m, f, t, vol, dur = 1.2, dest = m.sfx) {
 // ---------------------------------------------------------------- effetti di gioco
 
 /**
- * Tono continuo dell'elastico durante la mira: oggetto con aggiorna(tensione 0–1) e ferma().
- * Leggero: dente di sega filtrato con un tremolio, sale di frequenza con la tensione.
+ * Voce dell'elastico durante la mira: oggetto con aggiorna(tensione 0–1) e ferma().
+ * Timbro da cartone animato: una voce nasale tipo kazoo (quadra + dente di sega un'ottava sotto, filtrate da una
+ * "vocale" passa-banda che si apre da "uu" a "ii" con la tensione) con un vibrato di intonazione che si allarga
+ * tirando, più uno squittio di gomma a ogni scatto di tensione in più ("nyeee... iik iik").
  */
 export function elastico(m, cfg) {
   const voce = m.voce('tensione', 30, true);
@@ -81,37 +83,51 @@ export function elastico(m, cfg) {
   const t = m.t;
   const out = c.createGain();
   out.gain.setValueAtTime(0.0001, t);
-  out.gain.linearRampToValueAtTime(cfg.gain, t + 0.08);
+  out.gain.linearRampToValueAtTime(cfg.gain, t + 0.06);
   out.connect(m.sfx);
   const lp = c.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = 900;
-  lp.Q.value = 3;
+  lp.frequency.value = 2600;
   lp.connect(out);
+  const vocale = c.createBiquadFilter(); // formante: dà il colore "nasale"
+  vocale.type = 'bandpass';
+  vocale.frequency.value = cfg.formant[0];
+  vocale.Q.value = 3.5;
+  vocale.connect(lp);
   const o = c.createOscillator();
-  o.type = 'sawtooth';
+  o.type = 'square';
   o.frequency.value = cfg.f0;
-  const o2 = c.createOscillator(); // seconda voce leggermente stonata: corda che vibra
-  o2.type = 'triangle';
-  o2.frequency.value = cfg.f0 * 1.006;
-  const lfo = c.createOscillator(); // tremolio
-  lfo.frequency.value = 7;
-  const lfoG = c.createGain();
-  lfoG.gain.value = cfg.gain * 0.35;
-  lfo.connect(lfoG).connect(out.gain);
-  o.connect(lp);
-  o2.connect(lp);
-  for (const x of [o, o2, lfo]) x.start(t);
+  const o2 = c.createOscillator(); // un'ottava sotto, più piano: corpo gommoso
+  o2.type = 'sawtooth';
+  o2.frequency.value = cfg.f0 / 2;
+  const g2 = c.createGain();
+  g2.gain.value = 0.5;
+  const vib = c.createOscillator(); // vibrato sull'intonazione (cent), non sul volume
+  vib.frequency.value = 5;
+  const vibG = c.createGain();
+  vibG.gain.value = cfg.vibrato * 0.5;
+  vib.connect(vibG);
+  vibG.connect(o.detune);
+  vibG.connect(o2.detune);
+  o.connect(vocale);
+  o2.connect(g2).connect(vocale);
+  for (const x of [o, o2, vib]) x.start(t);
   let finito = false;
+  let scatto = 0; // ultimo scatto di tensione suonato
+  let f = cfg.f0;
   return {
     aggiorna(k) {
       if (finito) return;
-      const f = cfg.f0 + (cfg.f1 - cfg.f0) * k * k;
+      f = cfg.f0 + (cfg.f1 - cfg.f0) * k ** 1.3;
       const ora = m.t;
-      o.frequency.setTargetAtTime(f, ora, 0.04);
-      o2.frequency.setTargetAtTime(f * 1.006, ora, 0.04);
-      lp.frequency.setTargetAtTime(700 + k * 2200, ora, 0.05);
-      lfo.frequency.setTargetAtTime(6 + k * 8, ora, 0.1);
+      o.frequency.setTargetAtTime(f, ora, 0.05);
+      o2.frequency.setTargetAtTime(f / 2, ora, 0.05);
+      vocale.frequency.setTargetAtTime(cfg.formant[0] + (cfg.formant[1] - cfg.formant[0]) * k, ora, 0.06);
+      vib.frequency.setTargetAtTime(5 + k * 4, ora, 0.1);
+      vibG.gain.setTargetAtTime(cfg.vibrato * (0.5 + k), ora, 0.1);
+      const n = Math.floor(k * cfg.scatti);
+      if (n > scatto) squittio(m, f * 2.2, ora, cfg.gain * 1.6, out);
+      scatto = n; // tornando indietro non suona, ma riparte da lì
     },
     ferma() {
       if (finito) return;
@@ -119,18 +135,29 @@ export function elastico(m, cfg) {
       const ora = m.t;
       out.gain.cancelScheduledValues(ora);
       out.gain.setTargetAtTime(0.0001, ora, 0.03);
-      for (const x of [o, o2, lfo]) {
+      for (const x of [o, o2, vib]) {
         x.stop(ora + 0.2);
         x.onended = () => x.disconnect();
       }
       setTimeout(() => {
-        out.disconnect();
-        lp.disconnect();
-        lfoG.disconnect();
+        for (const x of [out, lp, vocale, g2, vibG]) x.disconnect();
       }, 400);
       m.liberaVoce(voce);
     },
   };
+}
+
+/** Squittio di gomma: brevissimo "iik" che sale (sinusoide + triangolo), sul bus `dest`. */
+function squittio(m, f, t, vol, dest) {
+  const g = inviluppo(m, dest, t, vol, 0.004, 0.07);
+  for (const [tipo, r, a] of [['sine', 1, 1], ['triangle', 1.5, 0.35]]) {
+    const ga = m.ctx.createGain();
+    ga.gain.value = a;
+    ga.connect(g);
+    const o = oscillatore(m, tipo, f * r, t, 0.08, ga);
+    o.frequency.exponentialRampToValueAtTime(f * r * 1.45, t + 0.06);
+    o.addEventListener('ended', () => ga.disconnect());
+  }
 }
 
 /** Lancio: schiocco dell'elastico (colpo di rumore + "twang" che scende) e fruscio d'aria che dura con la velocità. */
@@ -177,6 +204,25 @@ export function pupazzo(m, vol) {
   o.frequency.exponentialRampToValueAtTime(40, t + 0.25);
 }
 
+/**
+ * Pacco non consegnato che svanisce: un "Fiu!" di vento. Soffio di rumore in un passa-banda stretto che sale
+ * veloce di tono e sfuma (la "f" e la "iu"), con sotto un fischio leggero che sale insieme.
+ */
+export function svanito(m) {
+  if (!m.voce('svanito', 0.45)) return;
+  const t = m.t;
+  const g = m.ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.5, t + 0.07);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+  g.connect(m.sfx);
+  const { filtro } = rumore(m, t, 0.45, g, 'bandpass', 500, 5);
+  filtro.frequency.exponentialRampToValueAtTime(3200, t + 0.3);
+  setTimeout(() => g.disconnect(), 700);
+  const o = oscillatore(m, 'sine', 700, t + 0.03, 0.32, inviluppo(m, m.sfx, t + 0.03, 0.05, 0.06, 0.26));
+  o.frequency.exponentialRampToValueAtTime(2600, t + 0.3);
+}
+
 /** Ghiaccio: tintinnio cristallino (3–5 note acute brevi e casuali) più uno scricchiolio. */
 export function ghiaccio(m, vol, grande) {
   if (!m.voce('rottura-ghiaccio', 0.8)) return;
@@ -192,6 +238,19 @@ export function ghiaccio(m, vol, grande) {
   }
 }
 
+/** Cristalli dell'albero staccati: tintinnio lieve e acuto, 2–4 note brevissime più un fruscio sottile. `n` = quanti, `gain` volume. */
+export function cristalli(m, n, gain = 1) {
+  if (!m.voce('cristalli', 0.3)) return;
+  const t = m.t;
+  const vol = gain * Math.min(1.6, 0.7 + Math.log2(1 + n) * 0.3);
+  rumore(m, t, 0.04, inviluppo(m, m.sfx, t, 0.12 * vol, 0.001, 0.04), 'highpass', 6000, 1);
+  const k = Math.min(4, 2 + Math.floor(n / 2));
+  for (let i = 0; i < k; i++) {
+    const ti = t + i * rnd(0.015, 0.045);
+    const f = rnd(3200, 6800);
+    oscillatore(m, 'sine', f, ti, 0.2, inviluppo(m, m.sfx, ti, rnd(0.05, 0.09) * vol, 0.001, rnd(0.05, 0.16)));
+  }
+}
 /** Vetro: schianto di rumore acuto + molti frammenti tintinnanti che cadono. */
 export function vetro(m, vol = 1) {
   if (!m.voce('vetro', 0.9, true)) return;
@@ -304,17 +363,4 @@ export function jingle(m, stelle = 0) {
   // basso morbido sotto l'accordo
   oscillatore(m, 'triangle', midi(48), tf, 1.6, inviluppo(m, m.sfx, tf, 0.18, 0.02, 1.5));
   if (stelle >= 3) for (let i = 0; i < 8; i++) campana(m, midi(84 + [0, 4, 7, 12][i % 4]), tf + 0.1 + i * 0.07, 0.05, 0.5);
-}
-
-/** Tocco che accelera la simulazione: un "fruscio veloce" brevissimo. */
-export function accelera(m) {
-  if (!m.voce('accelera', 0.2, true)) return;
-  const t = m.t;
-  const g = m.ctx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(0.4, t + 0.04);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-  g.connect(m.sfx);
-  const { filtro } = rumore(m, t, 0.2, g, 'bandpass', 800, 2);
-  filtro.frequency.exponentialRampToValueAtTime(3500, t + 0.18);
 }

@@ -1,7 +1,8 @@
 import { VIEW_W, VIEW_H, GFX, GIFTS, SCORE } from '../config.js';
 import { WALL, isPlugged } from '../entities/house.js';
 import { centroid } from '../physics/polygon.js';
-import { X, Y, TAU, stella5 } from './view.js';
+import { X, Y, TAU, stella5, V, setView } from './view.js';
+import { cappello } from './snow.js';
 import { drawGiftIcon } from './propsDraw.js';
 
 const C = GFX.colors;
@@ -12,7 +13,7 @@ const AZZURRO = '#9fe0ff'; // apertura tappata dalla neve
 /** Testo col bordo scuro (punti, titoli). Coordinate schermo. */
 function testo(c, txt, x, y, pxs, o = {}) {
   c.save();
-  c.globalAlpha = o.alfa ?? 1;
+  c.globalAlpha *= o.alfa ?? 1; // si somma alla trasparenza già impostata (etichette in dissolvenza, pannello che entra)
   c.font = `${o.peso || 700} ${pxs}px ${FONT}`;
   c.textAlign = o.all || 'center';
   c.textBaseline = 'middle';
@@ -132,8 +133,31 @@ function etichetta(c, tipo, punti, x, y, top, calata, tappata) {
   }
 }
 
-/** Valori delle aperture e punti fluttuanti, in coordinate schermo (testo sempre nitido). Vista = camera. */
+/** Visibilità (0–1) delle etichette delle aperture: spariscono durante il lancio, ricompaiono a tiro finito. */
+let etichetteAlfa = 1;
+let etichetteT = null;
+
+/**
+ * Valori delle aperture e punti fluttuanti, in coordinate schermo (testo sempre nitido). Vista = camera.
+ * Durante il volo e l'assestamento le etichette svaniscono (GFX.labelFade) e non si disegnano: scrivere testo
+ * sul canvas costa (~1 ms per frame sul telefono) proprio mentre la fisica lavora di più.
+ */
 export function drawWorldLabels(ctx, game) {
+  const now = game.time || 0;
+  const dt = etichetteT === null ? 0 : Math.max(0, now - etichetteT);
+  etichetteT = now;
+  const lancio = game.state === 'flight' || game.state === 'settle';
+  etichetteAlfa = Math.min(1, Math.max(0, etichetteAlfa + (lancio ? -1 : 1) * (dt / GFX.labelFade)));
+  if (etichetteAlfa > 0) {
+    ctx.save();
+    ctx.globalAlpha = etichetteAlfa;
+    disegnaEtichette(ctx, game);
+    ctx.restore();
+  }
+  for (const f of game.floaters) punteggioVolante(ctx, f);
+}
+
+function disegnaEtichette(ctx, game) {
   for (const h of game.houses) {
     for (const z of h.zones) {
       const top = z.points >= SCORE.maxPoints && !z.count;
@@ -145,10 +169,40 @@ export function drawWorldLabels(ctx, game) {
       }
     }
   }
-  for (const f of game.floaters) {
-    const a = f.t < SCORE.floaterLife - 0.6 ? 1 : 1 - (f.t - SCORE.floaterLife + 0.6) / 0.6; // svanisce nell'ultimo 0.6 s
-    testo(ctx, f.text, X(f.x), Y(f.y), f.big ? 40 : 30, { alfa: Math.max(0, a), col: f.bad ? '#ff8a8a' : C.oro }); // punti tolti in rosso
-  }
+}
+
+/**
+ * Punteggio che vola via da un'apertura centrata (o i punti tolti da una renna, in rosso).
+ * Entra con un "pop" elastico (da piccolo a più grande del normale e poi giusto), ha un alone dorato dietro e
+ * un'ombra, sale rallentando e svanisce ingrandendosi un poco. Coordinate schermo, vista = camera.
+ */
+function punteggioVolante(c, f) {
+  const L = SCORE.floaterLife;
+  const t = f.t;
+  const ent = Math.min(1, t / 0.32);
+  const pop = ent < 1 ? 0.3 + 0.7 * ent + Math.sin(ent * Math.PI) * 0.45 : 1; // supera e torna: rimbalzo
+  const usc = Math.max(0, (t - (L - 0.55)) / 0.55); // ultimi 0.55 s
+  const a = 1 - usc;
+  const k = pop * (1 + usc * 0.25);
+  const x = X(f.x);
+  const y = Y(f.y);
+  const pxs = f.big ? 54 : 38;
+  c.save();
+  c.translate(x, y);
+  c.scale(k, k);
+  c.rotate(Math.sin(t * 5) * 0.04 * a); // leggero dondolio
+  // alone dietro al numero
+  const col = f.bad ? '255,120,120' : '255,211,107';
+  const r = pxs * 1.5;
+  const g = c.createRadialGradient(0, 0, 2, 0, 0, r);
+  g.addColorStop(0, `rgba(${col},${0.5 * a})`);
+  g.addColorStop(1, `rgba(${col},0)`);
+  c.fillStyle = g;
+  c.fillRect(-r * 1.4, -r, r * 2.8, r * 2);
+  // ombra morbida sotto e testo con il bordo scuro
+  testo(c, f.text, 2, 4, pxs, { alfa: 0.35 * a, col: '#000', bordo: false, peso: 800 });
+  testo(c, f.text, 0, 0, pxs, { alfa: a, col: f.bad ? '#ff8a8a' : C.oro, bordo: f.bad ? '#4a0d0d' : '#5a1e12', peso: 800 });
+  c.restore();
 }
 
 /**
@@ -198,10 +252,7 @@ export function drawHud(ctx, game, top = 0) {
   if (game.state === 'ready') {
     if (game.sling.loaded) hint = 'Tira indietro il pacco e rilascia';
     else if (game.sleigh.count) hint = 'Trascina un pacco sulla fionda e tira indietro';
-  } else if (game.veloce) {
-    drawFastBadge(ctx, game);
-  } else if (game.state === 'settle' || (game.state === 'flight' && game.stateTime > 0.6)) hint = 'Tocca per accelerare';
-  else if (game.state === 'intro') hint = 'Tocca per saltare';
+  } else if (game.state === 'intro') hint = 'Tocca per saltare';
   if (hint) {
     ctx.font = `600 15px ${FONT}`;
     const w = ctx.measureText(hint).width + 36;
@@ -212,24 +263,6 @@ export function drawHud(ctx, game, top = 0) {
     ctx.fillText(hint, 34, 83);
     ctx.globalAlpha = 1;
   }
-}
-
-/** Indicatore "▶▶" della simulazione accelerata (al posto del suggerimento), con due triangoli che pulsano. */
-function drawFastBadge(ctx, game) {
-  pillola(ctx, 16, 66, 70, 32);
-  const t = game.time || 0;
-  for (let i = 0; i < 2; i++) {
-    const x = 36 + i * 15;
-    ctx.globalAlpha = 0.55 + 0.45 * Math.max(0, Math.sin(t * 9 - i * 1.2));
-    ctx.fillStyle = C.oro;
-    ctx.beginPath();
-    ctx.moveTo(x, 74);
-    ctx.lineTo(x + 13, 82);
-    ctx.lineTo(x, 90);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
 }
 
 /** Pacco sopra il bordo della vista: freccia del suo colore sul bordo superiore. */
@@ -281,7 +314,7 @@ function scintilla(c, x, y, r) {
 
 /**
  * Decorazioni leggere della schermata finale (tempo reale t, s dall'apertura): neve che scende su tutto
- * lo schermo, stelle cadenti in alto, scintille attorno al titolo, lucine colorate sul bordo del pannello.
+ * lo schermo, stelle cadenti in alto, scintille attorno al titolo (le lucine sul bordo sono in `lucine`).
  * Nessuna allocazione per frame, una manciata di riempimenti.
  */
 function decorazioni(c, t, x, y, w) {
@@ -332,24 +365,33 @@ function decorazioni(c, t, x, y, w) {
     scintilla(c, sx, sy, 4 + a * 5);
   }
   c.globalAlpha = 1;
-  // lucine sul bordo superiore del pannello, a festone
+  c.globalAlpha = 1;
+}
+
+/**
+ * Lucine colorate lungo il bordo superiore del pannello finale, disegnate prima del cappello di neve:
+ * spuntano da sotto la neve, che ne copre la parte alta.
+ */
+function lucine(c, t, x, y, w) {
+  const a0 = c.globalAlpha; // dissolvenza d'entrata del pannello
   const col = ['#ff6f61', '#ffd36b', '#5fe0b8', '#8fc8ff'];
+  const filo = (u) => y + 25 + Math.sin(u * Math.PI * 5) * 2;
   for (let i = 0; i < 15; i++) {
     const u = (i + 0.5) / 15;
     const lx = x + 30 + u * (w - 60);
-    const ly = y + 2 + Math.sin(u * Math.PI * 3) * 5;
+    const ly = filo(u);
     const on = 0.55 + 0.45 * Math.sin(t * 3 + i * 1.9);
-    c.globalAlpha = 0.35 * on;
+    c.globalAlpha = a0 * 0.35 * on;
     c.fillStyle = col[i % 4];
     c.beginPath();
     c.arc(lx, ly, 8, 0, TAU);
     c.fill();
-    c.globalAlpha = 0.6 + 0.4 * on;
+    c.globalAlpha = a0 * (0.6 + 0.4 * on);
     c.beginPath();
     c.arc(lx, ly, 3.6, 0, TAU);
     c.fill();
   }
-  c.globalAlpha = 1;
+  c.globalAlpha = a0;
 }
 
 /** Istante (tempo reale del gioco) in cui è comparso il riepilogo: per l'animazione d'entrata. */
@@ -366,8 +408,9 @@ export function drawSummary(ctx, game) {
   const t = now - apertura.get(s);
   const w = 560;
   const x = (VIEW_W - w) / 2;
-  const y = 66;
-  const h = 450;
+  const y = 30; // il pannello parte più in alto: sotto la neve del bordo resta aria prima del titolo
+  const h = 486;
+  const yc = y + 36; // origine dei contenuti (titolo, stelle, punteggio)
   ctx.save();
   ctx.fillStyle = `rgba(5,8,26,${0.6 * Math.min(1, t / 0.4)})`;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -388,24 +431,21 @@ export function drawSummary(ctx, game) {
   ctx.strokeStyle = 'rgba(255,211,107,0.6)';
   ctx.lineWidth = 2;
   ctx.stroke();
-  // neve sul bordo superiore del pannello
-  ctx.fillStyle = '#f4f8ff';
-  ctx.beginPath();
-  ctx.moveTo(x + 20, y + 4);
-  for (let i = 0; i <= 10; i++) {
-    const u = i / 10;
-    ctx.quadraticCurveTo(x + 20 + (u - 0.05) * (w - 40), y - 9 - hash(i + 400) * 6, x + 20 + u * (w - 40), y + 1);
-  }
-  ctx.lineTo(x + w - 20, y + 6);
-  ctx.quadraticCurveTo(x + w / 2, y + 12, x + 20, y + 6);
-  ctx.closePath();
-  ctx.fill();
+  // neve sul bordo superiore del pannello: lo stesso cappello di neve dei tetti (bordo bombato, festoni e colature).
+  // Il cappello lavora in metri: vista temporanea a GFX.panelSnowPpm px/m con l'origine in basso a sinistra.
+  const vista = { ...V };
+  const kn = GFX.panelSnowPpm;
+  lucine(ctx, t, x, y, w);
+  setView(kn, 0, 0, VIEW_H);
+  const bordo = (VIEW_H - y) / kn;
+  cappello(ctx, () => bordo, (x + 10) / kn, (x + w - 10) / kn, { sp: 0.3, su: 0.06, dome: 0.12, maxGoccia: 0.42, gocce: 0.3, seme: 9 });
+  setView(vista.ppm, vista.left, vista.bot, vista.h);
 
-  testo(ctx, 'Buone Feste!', VIEW_W / 2, y + 54, 50, { col: C.oro, bordo: '#5a1e12', peso: 800 });
-  testo(ctx, s.allServed ? 'Tutte le case servite!' : `Case servite: ${s.served} su ${s.houses}`, VIEW_W / 2, y + 98, 20, { col: 'rgba(255,255,255,0.9)', bordo: false, peso: 600 });
+  testo(ctx, 'Buone Feste!', VIEW_W / 2, yc + 54, 50, { col: C.oro, bordo: '#5a1e12', peso: 800 });
+  testo(ctx, s.allServed ? 'Tutte le case servite!' : `Case servite: ${s.served} su ${s.houses}`, VIEW_W / 2, yc + 98, 20, { col: 'rgba(255,255,255,0.9)', bordo: false, peso: 600 });
   for (let i = 0; i < 3; i++) {
     const sx = VIEW_W / 2 + (i - 1) * 66;
-    const sy = y + 146;
+    const sy = yc + 146;
     const on = i < s.stars;
     // le stelle guadagnate si accendono una dopo l'altra
     const ki = on ? Math.min(1, Math.max(0, (t - 0.35 - i * 0.25) / 0.25)) : 1;
@@ -427,14 +467,14 @@ export function drawSummary(ctx, game) {
       ctx.stroke();
     }
   }
-  testo(ctx, s.score.toLocaleString('it-IT'), VIEW_W / 2, y + 206, 44);
+  testo(ctx, s.score.toLocaleString('it-IT'), VIEW_W / 2, yc + 206, 44);
   const lines = [
     `Consegne: ${s.delivered} su ${s.thrown} lanci  ·  ${s.deliveryScore}`,
     s.crystals ? `Neve e cristalli: ${s.ice} + ${s.crystals}  ·  ${s.iceScore + s.crystalScore}` : `Neve rotta: ${s.ice}  ·  ${s.iceScore}`,
   ];
   if (s.bonus) lines.push(`Tutte le case servite  ·  +${s.bonus}`);
   if (s.penalty) lines.push(`Renne spaventate: ${s.reindeerHits}  ·  −${s.penalty}`);
-  lines.forEach((l, i) => testo(ctx, l, VIEW_W / 2, y + 246 + i * 23, 15, { col: 'rgba(255,255,255,0.84)', peso: 500, bordo: false }));
+  lines.forEach((l, i) => testo(ctx, l, VIEW_W / 2, yc + 246 + i * 23, 15, { col: 'rgba(255,255,255,0.84)', peso: 500, bordo: false }));
   for (const b of game.buttons) {
     ctx.beginPath();
     ctx.roundRect(b.x, b.y, b.w, b.h, b.h / 2);
@@ -444,7 +484,7 @@ export function drawSummary(ctx, game) {
   }
   ctx.restore();
   ctx.save();
-  decorazioni(ctx, t, x, y, w);
+  decorazioni(ctx, t, x, yc, w);
   ctx.restore();
 }
 

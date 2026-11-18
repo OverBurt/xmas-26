@@ -1,5 +1,6 @@
 import { SCORE, TURN } from '../config.js';
 import { zoneAt } from '../entities/house.js';
+import { shatterGlass } from './contacts.js';
 
 /**
  * Regole di consegna e punteggio.
@@ -22,6 +23,15 @@ export function crystals(g) {
 /** Consegna di un pacco in un'apertura: punti, valore ridotto per la prossima volta, effetti. Evento 'consegna'. */
 export function deliver(g, body, house, zone) {
   const p = body.getPosition();
+  // Porta o finestra: il vetro si rompe sempre con la consegna (anche se il pacco è entrato nella zona prima
+  // di toccarlo, o l'ha attraversato in un solo step perché velocissimo)
+  const vetro = zone.pane?.getUserData();
+  if (vetro && !vetro.broken) {
+    vetro.broken = true;
+    const v = body.getLinearVelocity();
+    g.glassQueue.push({ pane: zone.pane, by: body, vx: v.x, vy: v.y });
+    shatterGlass(g);
+  }
   const pts = zone.points;
   g.deliveryScore += pts;
   g.deliveries.push({ type: zone.type, points: pts });
@@ -30,8 +40,8 @@ export function deliver(g, body, house, zone) {
   zone.points = Math.max(10, Math.round((zone.base * SCORE.repeat ** zone.count) / 10) * 10);
   house.served++;
   g.deliveredThisTurn = true;
-  zone.glow = SCORE.zoneGlow;
-  g.floaters.push({ text: `+${pts}`, x: p.x, y: p.y + 0.6, t: 0, big: zone.type === 'chimney' });
+  // niente bagliore sull'apertura: il punteggio vola via ben visibile (hudDraw.js)
+  g.floaters.push({ text: `+${pts.toLocaleString('it-IT')}`, x: p.x, y: p.y + 0.6, t: 0, big: true, vx: (p.x < house.def.x ? -1 : 1) * SCORE.floaterDrift })
   g.particles.burst(p.x, p.y, 18, 3, '#ffd36b');
   const x = p.x;
   const y = p.y;

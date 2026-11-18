@@ -20,7 +20,8 @@ import { createIceBody } from '../physics/fracture.js';
  *    door: {h, points}, windows: [{y, h, points}],
  *    chimney: {pos, bottom, top, h, tilt, points},
  *    y: quota del terreno (default 0),
- *    snowCap: bool (cappello di neve sul camino), doorDrift: bool (cumulo davanti alla porta) }
+ *    snowCap: bool (cappello di neve sul camino), doorDrift: bool (cumulo davanti alla porta),
+ *    stile: 'baita' | 'casetta' (solo disegno: tavolozza, tetto, arredamento; vedi render/houseDraw.js) }
  *  chimney.pos: posizione lungo la falda sinistra (0 = gronda, 1 = colmo)
  *  chimney.bottom/top: larghezza interna alla base e in cima; tilt: gradi verso sinistra
  */
@@ -106,7 +107,6 @@ export function buildHouse(pw, def) {
       // Finestre: basta che il centro del pacco superi il vetro.
       // Porta: conta già un pacco arrivato a contatto (rotolando o scivolando a terra).
       poly: leftQuad(gap.y0, gap.y1, gap.type === 'door' ? WALL / 2 - DOOR_REACH : WALL / 2, WALL + ZONE_DEPTH),
-      glow: 0,
     });
     const pane = leftQuad(gap.y0, gap.y1, WALL / 2 - PANE, WALL / 2 + PANE);
     const c = centroid(pane);
@@ -115,6 +115,7 @@ export function buildHouse(pw, def) {
     pb.createFixture({ shape: new Polygon(local.map((p) => new Vec2(p.x, p.y))), friction: 0.3, restitution: 0.1 });
     pb.setUserData({ kind: 'glass', pane: true, opening: gap.type, poly: local, broken: false });
     panes.push(pb);
+    zones[zones.length - 1].pane = pb; // il vetro di questa apertura: si rompe sempre con la consegna (scoring.js)
   }
 
   // Camino a imbuto sulla falda sinistra, inclinato verso sinistra
@@ -139,7 +140,6 @@ export function buildHouse(pw, def) {
       type: 'chimney',
       points: chimney.points,
       poly: [T(-bw, below), T(bw, below), T(tw, H - 0.25), T(-tw, H - 0.25)],
-      glow: 0,
     });
     chimneyGeom = {
       wallL,

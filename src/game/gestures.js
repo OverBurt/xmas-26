@@ -23,8 +23,7 @@ export function pointerDown(g, p) {
     return;
   }
   if (g.state === 'flight' || g.state === 'settle') {
-    // Tocco durante il volo o l'assestamento: la simulazione accelera (il turno finisce comunque a pacchi fermi).
-    g.accelera();
+    // Tocco durante il volo o l'assestamento: nessun effetto, si aspetta che il turno finisca
     g.mode = null;
     return;
   }
@@ -121,12 +120,18 @@ function startAim(g, w) {
 function updateAim(g) {
   const s = g.sling;
   const v = s.velocity;
-  const steps = Math.round(TRAJECTORY.steps * g.level.preview);
-  g.trajectory = predictTrajectory(s.loadX, s.loadY, v.vx, v.vy, steps, 0, g.level.bounds.maxX);
+  // Quanta traiettoria si vede dipende dal livello ed è una distanza dalla fionda (`previewDist`, metri): non cresce
+  // tirando più forte. Senza `previewDist` si vede l'arco intero (o la frazione `preview` dei vecchi livelli).
+  const L = g.level;
+  const steps = Math.round(TRAJECTORY.steps * (L.previewDist ? 1 : L.preview ?? 1));
+  g.trajectory = predictTrajectory(s.loadX, s.loadY, v.vx, v.vy, steps, 0, L.bounds.maxX, L.previewDist ?? Infinity);
   // Mirando la slitta non serve più: il bordo sinistro si ferma poco dietro la fionda
   // (spazio per il pacco tirato indietro) e tutto il resto dell'inquadratura va verso destra;
   // tendendo l'elastico la camera si allarga ancora.
-  const w = g.level.camera.aimW + s.tension * CAMERA.pullZoomOut;
+  // A tensione massima la vista arriva a `camera.aimMaxW` (se il livello lo indica): deve comprendere anche la
+  // casa più lontana, altrimenti non si vede dove si mira. Senza, si allarga di CAMERA.pullZoomOut.
+  const cam = g.level.camera;
+  const w = cam.aimW + s.tension * (cam.aimMaxW ? Math.max(0, cam.aimMaxW - cam.aimW) : CAMERA.pullZoomOut);
   const left = s.x - SLING.maxPull - CAMERA.aimBehind;
   g.camera.setTarget(left + w / 2, w);
 }

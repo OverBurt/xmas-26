@@ -16,22 +16,27 @@ import * as fx from './effetti.js';
  *  consegna  → campanelle (porta 2 note, finestra 3, camino 5 + accordo); tono che sale con i punti
  *  renna     → verso buffo
  *  fine      → jingle; poi la musica si attenua
- *  accelera  → (dal tocco che accelera la simulazione) fruscio veloce
  * Musica: bassa, scende durante la mira, si attenua a fine livello.
  *
  * @param {import('../game/game.js').Game} game
- * @param {{button?: HTMLElement}} opts pulsante muto (DOM)
+ * @param {{button?: HTMLElement, pannello?: HTMLElement}} opts pulsante audio e pannello con musica ed effetti (DOM)
  */
-export function avviaAudio(game, { button } = {}) {
+export function avviaAudio(game, { button, pannello } = {}) {
   const m = new Motore();
   const musica = new Musica(m);
   let tono = null; // tono dell'elastico in corso
-  let livelloMusica = -1; // ultimo fattore di volume applicato alla musica
+  let livelloMusica = -1; // ultimo volume applicato alla musica (fattore di scena × volume scelto)
   /** Rotture in attesa per materiale: {lista, ultimo (ms)} */
   const rotture = { ice: { lista: [], ultimo: -1e9 }, snow: { lista: [], ultimo: -1e9 }, snowman: { lista: [], ultimo: -1e9 } };
   let ultimoVetro = -1e9;
 
-  m.alSblocco.push(() => musica.avvia());
+  m.alSblocco.push(() => m.prefs.musica.on && musica.avvia());
+  // musica spenta: la sorgente si ferma (nessun lavoro); riaccesa: riparte
+  m.alMuto.push(() => {
+    if (!m.ctx) return;
+    if (m.prefs.musica.on) musica.avvia();
+    else musica.ferma();
+  });
 
   // Sblocco al primo gesto (lo stesso tocco che chiede lo schermo intero): pointerdown/up, clic, tasto.
   const sblocca = () => {
@@ -46,7 +51,7 @@ export function avviaAudio(game, { button } = {}) {
   // ---------------------------------------------------------------- eventi di gioco
   game.on('tensione', () => {
     tono?.ferma();
-    tono = m.attivo ? fx.elastico(m, AUDIO.tension) : null;
+    tono = m.effettiAttivi ? fx.elastico(m, AUDIO.tension) : null;
   });
   const fermaTono = () => {
     tono?.ferma();
@@ -71,10 +76,18 @@ export function avviaAudio(game, { button } = {}) {
     ultimoVetro = ora;
     fx.vetro(m);
   });
+  game.on('svanito', () => m.effettiAttivi && fx.svanito(m));
+  let ultimiCristalli = 0;
+  game.on('cristalli', (e) => {
+    // pacco nella chioma: un tintinnio lieve, al massimo uno ogni AUDIO.crystalWindow
+    const ora = performance.now();
+    if (!m.attivo || ora - ultimiCristalli < AUDIO.crystalWindow * 1000) return;
+    ultimiCristalli = ora;
+    fx.cristalli(m, e.n, AUDIO.crystalGain);
+  });
   game.on('consegna', (e) => m.attivo && fx.consegna(m, e.tipo, e.punti, e.ripetizione));
   game.on('renna', () => m.attivo && fx.renna(m));
   game.on('fine', (s) => m.attivo && fx.jingle(m, s.stars));
-  game.on('accelera', () => m.attivo && fx.accelera(m));
 
   /** Rotture raccolte: per materiale al massimo breakMax suoni per finestra, i più forti; gli altri alzano il volume. */
   function suonaRotture() {
@@ -98,13 +111,26 @@ export function avviaAudio(game, { button } = {}) {
     }
   }
 
-  // ---------------------------------------------------------------- muto
+  // ---------------------------------------------------------------- pulsante e pannello audio
+  // Il pulsante apre un pannello con due righe (Musica, Effetti): interruttore e volume per ciascuna.
+  // Il tasto M spegne o riaccende tutto.
   function disegnaPulsante() {
-    if (!button) return;
-    button.innerHTML = m.muto ? ICONA_MUTO : ICONA_SUONO;
-    button.setAttribute('aria-pressed', m.muto ? 'true' : 'false');
-    button.title = m.muto ? 'Audio spento (tasto M)' : 'Audio acceso (tasto M)';
-    button.classList.toggle('spento', m.muto);
+    if (button) {
+      button.innerHTML = m.muto ? ICONA_MUTO : ICONA_SUONO;
+      button.setAttribute('aria-expanded', pannello && !pannello.hidden ? 'true' : 'false');
+      button.title = m.muto ? 'Audio spento (tasto M)' : 'Audio (tasto M)';
+      button.classList.toggle('spento', m.muto);
+    }
+    if (!pannello) return;
+    for (const riga of pannello.querySelectorAll('[data-canale]')) {
+      const p = m.prefs[riga.dataset.canale];
+      const t = riga.querySelector('.interruttore');
+      t.setAttribute('aria-pressed', p.on ? 'true' : 'false');
+      t.innerHTML = (p.on ? ICONA_SUONO : ICONA_MUTO) + `<span>${t.dataset.nome}</span>`;
+      riga.classList.toggle('spento', !p.on);
+      const r = riga.querySelector('input');
+      if (document.activeElement !== r) r.value = Math.round(p.vol * 100);
+    }
   }
   function commuta() {
     m.sblocca(); // anche il pulsante è un gesto: se l'audio non era ancora partito parte ora
@@ -112,9 +138,41 @@ export function avviaAudio(game, { button } = {}) {
     if (m.muto) fermaTono();
     disegnaPulsante();
   }
-  button?.addEventListener('click', commuta);
+  function apriChiudi(apri = pannello?.hidden) {
+    if (!pannello) return commuta();
+    pannello.hidden = !apri;
+    disegnaPulsante();
+  }
+  button?.addEventListener('click', (e) => {
+    m.sblocca();
+    e.stopPropagation();
+    apriChiudi();
+  });
+  if (pannello) {
+    for (const riga of pannello.querySelectorAll('[data-canale]')) {
+      const canale = riga.dataset.canale;
+      riga.querySelector('.interruttore').addEventListener('click', () => {
+        m.sblocca();
+        m.imposta(canale, { on: !m.prefs[canale].on });
+        if (!m.effettiAttivi) fermaTono();
+        disegnaPulsante();
+      });
+      riga.querySelector('input').addEventListener('input', (e) => {
+        m.sblocca();
+        // muovere il volume riaccende il canale (volume a zero = spento)
+        const vol = e.target.value / 100;
+        m.imposta(canale, { vol, on: vol > 0 });
+        disegnaPulsante();
+      });
+    }
+    // chiusura: tocco fuori dal pannello o Esc
+    window.addEventListener('pointerdown', (e) => {
+      if (!pannello.hidden && !pannello.contains(e.target) && e.target !== button && !button?.contains(e.target)) apriChiudi(false);
+    }, true);
+  }
   window.addEventListener('keydown', (e) => {
     if (e.key === 'm' || e.key === 'M') commuta();
+    if (e.key === 'Escape' && pannello && !pannello.hidden) apriChiudi(false);
   });
   disegnaPulsante();
 
@@ -122,17 +180,18 @@ export function avviaAudio(game, { button } = {}) {
   function aggiorna() {
     if (!m.ctx) return;
     if (tono) {
-      if (game.mode === 'aim' && m.attivo) tono.aggiorna(game.sling.tension);
+      if (game.mode === 'aim' && m.effettiAttivi) tono.aggiorna(game.sling.tension);
       else fermaTono();
     }
     if (!m.attivo) return;
     suonaRotture();
     const f = game.state === 'end' ? AUDIO.musicEnd : game.mode === 'aim' ? AUDIO.musicAim : 1;
-    if (f !== livelloMusica) {
+    const v = AUDIO.music * f * m.volMusica;
+    if (v !== livelloMusica) {
       // a fine livello si attenua dopo il jingle (più lento), il resto in fretta
       m.mus.gain.cancelScheduledValues(m.t);
-      m.mus.gain.setTargetAtTime(AUDIO.music * f, m.t, f === AUDIO.musicEnd ? 1.2 : livelloMusica < 0 ? 1 : AUDIO.duckTime);
-      livelloMusica = f;
+      m.mus.gain.setTargetAtTime(v, m.t, f === AUDIO.musicEnd ? 1.2 : livelloMusica < 0 ? 1 : AUDIO.duckTime);
+      livelloMusica = v;
     }
   }
 

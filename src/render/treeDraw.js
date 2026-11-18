@@ -1,4 +1,4 @@
-import { GFX } from '../config.js';
+import { GFX, TREE } from '../config.js';
 import { side } from '../entities/snowTree.js';
 import { X, Y, S, V, seeded, spess, coppie, makeSprite, blit } from './view.js';
 import { palla } from './snow.js';
@@ -10,10 +10,10 @@ const C = GFX.colors;
  * perché non cambiano mai; i cristalli di sette forme si disegnano a ogni frame, un tracciato per forma.
  */
 
-/** Stile di ogni forma: riempimento e/o contorno. La stella è l'unica forma calda. */
+/** Stile di ogni forma: riempimento e/o contorno. Tutte fredde (bianco, ghiaccio, azzurro). */
 const STYLE = {
   fiocco: { stroke: '#f2f9ff', thick: true },
-  stella: { fill: '#fff6cf', stroke: '#ffd36b' },
+  stella: { fill: '#f0fbff', stroke: '#8fdcff' },
   gemma: { fill: 'rgba(143,233,255,0.85)', stroke: '#eafcff' },
   esagono: { fill: 'rgba(190,236,255,0.4)', stroke: '#dff6ff' },
   goccia: { fill: 'rgba(120,205,255,0.8)', stroke: '#f2fbff' },
@@ -36,15 +36,25 @@ export function buildTreeSprite(t, ppm) {
     x1 = Math.max(x1, p.x);
     y1 = Math.max(y1, p.y);
   }
-  const m = (t.def.trunkW ?? 0.7) + 0.2;
-  return makeSprite(x0 - m, y0 - 0.05, x1 + m, y1 + 0.3, ppm, (c) => {
+  const radici = buildRoots(t);
+  for (const r of radici) for (const p of r.pts) {
+    x0 = Math.min(x0, p.x);
+    x1 = Math.max(x1, p.x);
+  }
+  const m = 0.25;
+  return makeSprite(x0 - m, y0 - 0.12, x1 + m, y1 + 0.3, ppm, (c) => {
     const u = 1 / V.ppm;
     c.save();
     mondo(c);
+    // niente sotto la linea del terreno (il bordo inferiore del tronco e delle radici resta nascosto)
+    c.beginPath();
+    c.rect(x0 - m, -0.03, x1 - x0 + 2 * m, y1 + 1);
+    c.clip();
     c.lineJoin = 'round';
     c.beginPath();
     ribbon(c, t.trunk, true); // punta arrotondata, come i rami
     for (const b of t.branches) ribbon(c, b, true);
+    for (const r of radici) ribbon(c, r, true); // stesso tracciato: contorno unico, le giunture non si vedono
     c.strokeStyle = C.contorno;
     c.lineWidth = 2.6 * u;
     c.stroke();
@@ -65,29 +75,110 @@ export function buildTreeSprite(t, ppm) {
       else c.lineTo(x, y);
     }
     c.stroke();
+    cumuloAlPiede(c, t, radici, u);
     c.restore();
   });
 }
 
+/**
+ * Radici: per lato due curve rastremate che escono dalla parte bassa del tronco e si allargano a terra,
+ * una lunga e una corta, con piccole variazioni per albero (generatore con seme dalla posizione).
+ * Stessa struttura delle curve del tronco ({pts, ws}), così si disegnano con `ribbon`.
+ */
+function buildRoots(t) {
+  const R = seeded(Math.round(t.def.x * 100) + 7);
+  const B = t.trunk.pts[0];
+  const W0 = t.trunk.ws[0];
+  const out = [];
+  for (const lato of [-1, 1]) {
+    for (const [lung, alto, spess] of [[0.95, 0.42, 0.42], [0.5, 0.26, 0.3]]) {
+      const len = W0 * lung * (0.85 + R() * 0.3);
+      // attacco sull'asse del tronco (che è sinuoso), dentro il tronco: nessuna punta che sporge
+      const ya = W0 * alto;
+      const ia = t.trunk.pts.findIndex((p) => p.y >= ya);
+      const a = { x: t.trunk.pts[Math.max(0, ia)].x, y: ya };
+      const k = { x: B.x + lato * W0 * (0.55 + R() * 0.1), y: W0 * 0.06 };
+      const b = { x: B.x + lato * (W0 * 0.5 + len), y: -0.03 - R() * 0.03 };
+      const pts = [];
+      const ws = [];
+      const N = 10;
+      for (let i = 0; i <= N; i++) {
+        const s = i / N;
+        const q = 1 - s;
+        pts.push({ x: q * q * a.x + 2 * q * s * k.x + s * s * b.x, y: q * q * a.y + 2 * q * s * k.y + s * s * b.y });
+        ws.push(W0 * spess * (1 - s) ** 1.4 + 0.035);
+      }
+      out.push({ pts, ws });
+    }
+  }
+  return out;
+}
+
+/** Cumulo di neve morbido al piede dell'albero: copre l'attacco con il terreno, le punte delle radici spuntano fuori. */
+function cumuloAlPiede(c, t, radici, u) {
+  const B = t.trunk.pts[0];
+  const W0 = t.trunk.ws[0];
+  const xs = radici.map((r) => r.pts.at(-1).x);
+  const r0 = (Math.max(...xs) - Math.min(...xs)) * 0.36;
+  const h = Math.min(0.16, W0 * 0.2);
+  const f = (x) => {
+    const d = (x - B.x) / r0;
+    return Math.abs(d) >= 1 ? -0.04 : -0.04 + (h + 0.04) * (1 - d * d) ** 1.6;
+  };
+  c.beginPath();
+  c.moveTo(B.x - r0, -0.1);
+  for (let i = 0; i <= 40; i++) {
+    const x = B.x - r0 + (2 * r0 * i) / 40;
+    c.lineTo(x, f(x));
+  }
+  c.lineTo(B.x + r0, -0.1);
+  c.closePath();
+  c.fillStyle = '#ffffff';
+  c.fill();
+  // filo d'ombra azzurra sul bordo del cumulo
+  c.beginPath();
+  for (let i = 4; i <= 36; i++) {
+    const x = B.x - r0 + (2 * r0 * i) / 40;
+    i === 4 ? c.moveTo(x, f(x)) : c.lineTo(x, f(x));
+  }
+  c.strokeStyle = 'rgba(150,170,230,0.55)';
+  c.lineWidth = 1.4 * u;
+  c.stroke();
+}
+
 /** Albero a ogni frame: sprite di tronco e rami, poi i cristalli attaccati e quelli che cadono. */
-export function drawTree(ctx, t, sprite) {
+export function drawTree(ctx, t, sprite, tempo = 0) {
   blit(ctx, sprite);
   const px = 1 / V.ppm;
   ctx.save();
   mondo(ctx);
+  // Ondeggiamento al vento (solo disegno: le posizioni dei contatti restano ferme). Ogni cristallo ha la sua fase
+  // (c.k), più una raffica lenta che attraversa la chioma da sinistra a destra; in alto e in punta ai rami si
+  // muovono di più, gocce e stalattiti dondolano come pendoli (più rotazione che spostamento).
+  const W = TREE.vento;
+  const yBase = t.top.y;
   for (const shape of ORDER) {
     ctx.beginPath();
     let any = false;
+    const appeso = shape === 'goccia' || shape === 'stalattite';
     for (const c of t.crystals) {
       if (!c.alive || c.shape !== shape) continue;
+      const raffica = 0.6 + 0.4 * Math.sin(tempo * W.raffica - c.x * 0.7);
+      const onda = Math.sin(tempo * W.velocita * (0.8 + 0.4 * c.k) + c.k * 6.28) * raffica;
+      const quota = Math.min(1, Math.max(0.3, (c.y - yBase + 1) / 3));
+      const x0 = c.x, y0 = c.y, r0 = c.rot;
+      c.x += onda * W.ampiezza * quota * (appeso ? 0.4 : 1);
+      c.y += Math.cos(tempo * W.velocita * 1.3 + c.k * 9) * W.ampiezza * 0.3 * quota * raffica;
+      c.rot += onda * (appeso ? W.pendolo : W.rotazione);
       SHAPES[shape](ctx, c);
+      c.x = x0; c.y = y0; c.rot = r0;
       any = true;
     }
     if (any) paint(ctx, shape, px);
   }
   // Cristalli che cadono (svaniscono nell'ultimo tratto)
   for (const c of t.falling) {
-    ctx.globalAlpha = Math.min(1, c.life / 0.8);
+    ctx.globalAlpha = c.aTerra ? Math.min(1, c.life / TREE.groundFade) : 1; // svanisce solo a terra
     ctx.beginPath();
     SHAPES[c.shape](ctx, c);
     paint(ctx, c.shape, px);

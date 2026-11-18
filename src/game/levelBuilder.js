@@ -32,12 +32,12 @@ export function buildLevel(pw, L) {
   const reindeer = (L.reindeer || []).map((r) => buildReindeer(pw, r));
   for (const sm of L.snowmen || []) {
     // "fort": indice di un fortino → il pupazzo sta in cima: su uno spalto ("side": 0 sinistro, 1 destro)
-    // oppure al centro (+ "dx"); senza "fort" sta a terra in "x"
+    // oppure al centro (+ "dx"); con "cima": true sopra la scultura di ghiaccio; senza "fort" sta a terra in "x"
     const f = sm.fort !== undefined ? forts[sm.fort] : null;
     if (sm.fort !== undefined && !f) continue;
     const ledge = f && sm.side !== undefined ? f.ledges[sm.side] : null;
     const x = ledge ? (ledge.x0 + ledge.x1) / 2 : f ? (f.x0 + f.x1) / 2 + (sm.dx || 0) : sm.x;
-    slabs.push(buildSnowman(pw, x, f ? f.top : sm.y || 0));
+    slabs.push(buildSnowman(pw, x, f ? (sm.cima && f.iceTop !== undefined ? f.iceTop : f.top) : sm.y || 0));
   }
   const houses = L.houses.map((h) => buildHouse(pw, h));
   // Valore delle aperture: base dal JSON, cala a ogni consegna ripetuta (SCORE.repeat, vedi scoring.js)
