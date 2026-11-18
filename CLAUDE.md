@@ -9,7 +9,7 @@ The chronological history with measurements is in [docs/GDD.md](docs/GDD.md).
 ## Commands
 - `npm run dev` (Vite :5173, also on the local network) · `npm run build`
 - Test in the browser: `http://localhost:5173/?debug&level=<borgo-addormentato|bosco-di-cristallo|vetta-del-gufo>` (with `?level` or `?debug` the start page is skipped) and the `window.xmas` helpers (`sim`, `fire`, `findShot`, `wakeAll`, `game`).
-- Images (dev server running): `npm run anteprime` (level previews, after changing a level), `npm run og` (social banner = start page), `npm run icone` (PNG icons from `public/icon.svg`).
+- Images (dev server running): `npm run anteprime` (level previews, after changing a level), `npm run og` (social banner = start page), `npm run icone` (PNG icons from `public/pacco.svg`).
 - Test on Android: [tools/phone/README.md](tools/phone/README.md) (adb + DevTools).
 
 ## Rules
