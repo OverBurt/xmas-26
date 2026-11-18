@@ -284,18 +284,59 @@ Music (pre-recorded in `public/audio/musica.m4a`, AAC 48 kbps mono, 855 KB, 140.
 
 ## 9. Recommended next steps
 
-1. **Published on GitHub Pages** (19/11): https://overburt.github.io/xmas-26/ — public repository `OverBurt/xmas-26`, history cleaned of personal data (commits signed with OverBurt's GitHub noreply address).
-   - Workflow `.github/workflows/pages.yml`: at every push on `main` → `npm ci`, `npm run build` with `VITE_SITE_URL=https://overburt.github.io/xmas-26/` (set in the workflow; locally in `.env`, not versioned, template `.env.example`), upload of `dist/`, deploy. Can also be started by hand (workflow_dispatch).
-   - When publishing a build whose cached files must be dropped at once, bump `VERSIONE` in `public/sw.js`.
-   - Still to check by hand: social preview with a link debugger, install as an app on Android, offline start after the first visit, "Condividi" on the phone.
+1. **Published on GitHub Pages** (19/11): https://overburt.github.io/xmas-26/ — **how publishing works and the rules for every agent: §11**.
+   Still to check by hand: social preview with a link debugger, install as an app on Android (Chrome reports no installability errors), "Condividi" on the phone.
 2. **iOS test** (user, planned): layout, audio, offline.
 3. Listen to the audio on the phone and tune volumes.
 4. Optional: more levels; unlock levels by stars (today all are selectable).
 
 ## 10. Git and conventions
 
-- Branch `main`, remote `origin` = private repository `github.com/OverBurt/xmas-26`. `variante-albero` already merged (fast-forward), only local. `.env` and `.idea/` are not versioned (template in `.env.example`). Commit messages in Italian, with a short descriptive title and bullet points; final attribution line `Co-Authored-By` as the harness asks.
-- Commit only when the user asks for it. Update [GDD.md](GDD.md) (chronological section with measurements) and this file after every significant change.
+- Branch `main`, remote `origin` = **public** repository `github.com/OverBurt/xmas-26` (every push on `main` is published, see §11). `variante-albero` already merged (fast-forward), only local. `.env` and `.idea/` are not versioned (template in `.env.example`). Commit messages in Italian, with a short descriptive title and bullet points; final attribution line `Co-Authored-By` as the harness asks.
+- Commit only when the user asks for it; push only when the user asks to publish (§11). Update [GDD.md](GDD.md) (chronological section with measurements) and this file after every significant change.
 - Comments and UI texts in Italian; all tunable constants go in `config.js` with a comment (house measures in `HOUSE`, re-exported by `house.js` for the renderer; snow powder in `SNOW.powder`; tap slop in `GESTURE`).
 - Stacked pieces: import `GAP` (and `ccw`) from `src/physics/polygon.js`, never redefine them.
 - Behaviour-preserving refactors: compare `node tools/sim/grid.mjs <level> --json`, `stab.mjs`, `sacr.mjs` before/after (seeded, must be identical).
+
+## 11. Publishing (rules for every agent)
+
+The game is live at **https://overburt.github.io/xmas-26/**, served by GitHub Pages from the **public** repository `OverBurt/xmas-26`.
+**A push on `main` is a publication**: players see it within ~1 minute.
+
+### Who can update and publish
+- **OverBurt** — owner (also repository settings: visibility, Pages, collaborators).
+- **om4overmob** — manager authorised by the owner on 19/11 for updates and publishing: collaborator with **write** permission (push to `main` = publish). Invited on 19/11; active once the invitation is accepted. As a collaborator on a personal repository it cannot change settings (Pages, visibility): those stay with OverBurt.
+
+### How it works
+- Workflow [`.github/workflows/pages.yml`](../.github/workflows/pages.yml), triggered by every push on `main` (or by hand: `gh workflow run pages.yml`):
+  `npm ci` → `npm run build` with `VITE_SITE_URL=https://overburt.github.io/xmas-26/` → upload of `dist/` → deploy to Pages.
+- Pages source = "GitHub Actions" (already set; if it is ever lost: `gh api -X POST repos/OverBurt/xmas-26/pages -f build_type=workflow`).
+- `VITE_SITE_URL` (with the trailing slash) fills `canonical`, `og:url`, `og:image`, `twitter:image` and the JSON-LD in `index.html`.
+  In CI it comes from the workflow; locally from `.env` (not versioned; template `.env.example`).
+- `base: './'` in `vite.config.js`: every path is relative, so the site works under `/xmas-26/`.
+- Service worker `public/sw.js`: the page is network-first (updates arrive at once), the other files are served from the cache and refreshed in the background.
+  Build files have content hashes in their names, so a new build is picked up by itself. **Bump `VERSIONE` in `sw.js`** only when files with a fixed name change
+  (`audio/musica.m4a`, icons, `manifest.webmanifest`, `og.png`) or when old caches must be dropped at once.
+
+### Before pushing (checklist)
+1. The user asked to publish (or to commit **and** push). Otherwise commit only, or nothing.
+2. `npm test` passes (stability of every listed level) and `npm run build` succeeds.
+3. If obstacles, houses or levels changed: `npm run sim:score -- <id>` and `npm run sim:play -- <id> --stars` (points and stars regenerated).
+4. Checked in the browser (`npm run dev`) and, when possible, on the phone; docs updated (GDD chronological entry, this file).
+5. **Privacy — the repository is public, everything committed is readable by anyone, forever in the history:**
+   - Git identity must be a **GitHub noreply address**, never a personal or company email: `OverBurt <36509480+OverBurt@users.noreply.github.com>` or `om4overmob <270955320+om4overmob@users.noreply.github.com>` (check with `git config user.email` before committing; set it in every new clone with `git config user.name` / `git config user.email`).
+   - No personal data in files or commit messages: no personal/company emails, local paths (`/Users/...`), device serial numbers, local IP addresses, screenshots or logs with personal information, tokens. Quick scan before pushing:
+     `git diff origin/main --name-only | xargs grep -nIiE "@[a-z0-9-]+\.(com|it|net|org)|/Users/|192\.168\.|token|password" 2>/dev/null` (the noreply and `noreply@anthropic.com` addresses are fine).
+   - `.env` and `.idea/` stay out of the repository (`.gitignore`).
+
+### After pushing
+- Follow the run: `gh run list --workflow pages.yml --limit 1` then `gh run watch <id> --exit-status` (run it in the background: about 1 minute).
+- Check the site: `curl -s -o /dev/null -w '%{http_code}' https://overburt.github.io/xmas-26/` (also `sw.js`, `manifest.webmanifest`, `og.png`, `audio/musica.m4a`, the `assets/index-*.js` named in the page) and that `og:image` holds the full address.
+- When possible, open it on the phone: see [tools/phone/README.md](../tools/phone/README.md) ("Gioco pubblicato", `CDP_MATCH=overburt.github.io`). Measured on 19/11 on the S21: real-finger throw 56–72 FPS, physics < 2 ms, offline reload works, no installability errors.
+- Report to the user the address, the run result and what was checked.
+
+### If something goes wrong
+- Failed run: read `gh run view <id> --log-failed`, fix, push again.
+- Broken site: `git revert <sha>` and push (a new deploy of the previous state). **Never force-push `main`** and never rewrite history unless the user explicitly asks
+  (if personal data was pushed: tell the user at once; cleaning needs a history rewrite **and** recreating the repository, because GitHub keeps old commits reachable by id — done once on 19/11, it needs the `delete_repo` permission granted by the user).
+- Changing the address (custom domain, renamed repository): update `VITE_SITE_URL` in the workflow and in `.env`, README, this file; regenerate `og.png` if needed (`node tools/og/crea-og.mjs`).
