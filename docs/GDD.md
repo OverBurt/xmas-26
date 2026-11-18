@@ -294,6 +294,17 @@ Su richiesta dell'utente (foto di un castello di carte), solo per provare l'elem
 - Il primo test ha mostrato uno scatto di 75 ms (decine di rotture nello stesso step). Ora al massimo `FRACTURE.maxPerStep` = 6 rotture per step, le altre restano in coda per gli step seguenti: frame peggiore 9–17 ms, 0 frame oltre 20 ms, picco 65–67 corpi.
 - I punti del villaggio non sono stati rigenerati (la taratura è rimandata).
 
+### Renne solide che si spaventano (18/11/2026, anteprima nel gioco)
+- Decisione dell'utente: le renne sono corpi solidi, quando vengono colpite si spaventano e (con l'audio) faranno un verso. Implementate in anteprima: `reindeer.js` (corpo statico: per la renna che bruca un ottagono per il tronco + un poligono per collo e testa bassa; per quella di fronte due cerchi; zampe non solide), `reindeerDraw.js` (disegno provvisorio dalla direzione A: due pose, brucare con il muso che si alza, ciglia, coda, lucine; spavento con balzo solo disegnato, testa alzata, occhi sbarrati, orecchie dritte, corna che tremano, "!"), costanti `REINDEER` (durata 1.6 s, balzo 0.35 m, velocità minima 1 m/s, pausa 0.4 s contro i doppi contatti). Il colpo si rileva in begin-contact (solo stato, il mondo non cambia) e il gioco emette l'evento `renna` (aggancio per il verso).
+- Posizione: sulla collina dopo la casa B. I tre pini finali coprivano le renne (il pacco si fermava sul pino): livello allungato a x 58.5 e alternati renna che bruca (46.2), pino (49.4), renna di fronte (51.4), pino, pino.
+- Provato anche uno stile da cartone piatto (zampe lunghe, nasone, sorrisone, renna in piedi che saluta) su riferimento dell'utente: **annullato** su sua richiesta, restano le renne della direzione A.
+- Verificato in Chrome: pacco lasciato cadere sulla renna di fronte → si spaventa (balzo, "!"), evento emesso; pacco sulla renna che bruca → rimbalza sulla schiena, lei alza la testa e salta. Colpire una renna oggi non dà né toglie punti. Punti delle aperture non rigenerati.
+
+### Punto 1 della roadmap: livello chiuso (18/11/2026, notte)
+- **Renne: colpirle toglie punti** (decisione dell'utente): `SCORE.reindeerPenalty` = 100, una volta per oggetto e per renna (un pacco che rimbalza sulla testa non toglie punti due volte; verificato in Node: un colpo → un evento, −100). Scritta "−100" rossa che sale; riga "Renne spaventate" nel riepilogo finale; il punteggio non scende sotto zero.
+- Fortino del villaggio: nessuna decisione dell'utente su ponte di ghiaccio o castello di carte → resta quello con il **ponte di ghiaccio**; il castello di carte resta nel livello `prova-carte`.
+- Punti e stelle rigenerati dopo i cambi (pini e renne spostati, neve più fragile): A porta 14 → 3000, A finestra 5 → 3000, A camino 66.5 → 950, B porta 40.5 → 1350, B finestra 8.5 → 3000, B camino 6 → 3000; stelle 2300/4900/8700. Giocatore simulato medio: 2.4 consegne su 5, 21% senza stelle, 9% tre stelle (taratura fine rimandata dall'utente).
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente

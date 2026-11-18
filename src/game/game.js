@@ -1,4 +1,4 @@
-import { CAMERA, SLING, TURN, TRAJECTORY, SCORE, GLASS, INTRO, VIEW_W, VIEW_H } from '../config.js';
+import { CAMERA, SLING, TURN, TRAJECTORY, SCORE, GLASS, INTRO, VIEW_W, VIEW_H, REINDEER } from '../config.js';
 import { Camera } from '../core/camera.js';
 import { PhysicsWorld } from '../physics/world.js';
 import { predictTrajectory } from '../physics/trajectory.js';
@@ -9,6 +9,7 @@ import { SnowTree } from '../entities/snowTree.js';
 import { buildHill } from '../entities/hill.js';
 import { buildPine } from '../entities/pine.js';
 import { buildCardCastle } from '../entities/cardCastle.js';
+import { buildReindeer } from '../entities/reindeer.js';
 import { buildIgloo } from '../entities/igloo.js';
 import { launchGift } from '../entities/gift.js';
 import { Slingshot } from '../entities/slingshot.js';
@@ -59,6 +60,7 @@ export class Game {
     }
     this.hills = (L.hills || []).map((h) => buildHill(this.pw, h));
     this.pines = (L.pines || []).map((p) => buildPine(this.pw, p));
+    this.reindeer = (L.reindeer || []).map((r) => buildReindeer(this.pw, r));
     for (const sm of L.snowmen || []) {
       // "fort": indice di un fortino → il pupazzo sta in cima: su uno spalto ("side": 0 sinistro, 1 destro)
       // oppure al centro (+ "dx"); senza "fort" sta a terra in "x"
@@ -87,6 +89,7 @@ export class Game {
     this.panIdle = null;
     this.stats = { shots: 0, maxImpulse: 0 };
     this.deliveryScore = 0;
+    this.penalty = 0; // punti tolti (renne colpite)
     this.bonus = 0;
     this.deliveries = []; // {type, points}
     this.floaters = []; // testi "+1000" nel mondo
@@ -125,7 +128,10 @@ export class Game {
     // Pacco che tocca il lato interno del camino (spigolo della bocca compreso): consegnato.
     // La consegna avviene dopo lo step (il mondo non si modifica dentro una callback).
     this.pendingDeliveries = [];
-    this.pw.onBeginContact = (contact) => this.checkChimneyEdge(contact);
+    this.pw.onBeginContact = (contact) => {
+      this.checkChimneyEdge(contact);
+      this.checkReindeer(contact);
+    };
 
     this.pw.onImpulse = (body, impulse, other, speed) => {
       const ud = body.getUserData();
@@ -192,9 +198,9 @@ export class Game {
     // se l'intro è stata saltata la camera raggiunge la fionda con il suo inseguimento morbido
   }
 
-  /** Punteggio totale: consegne + neve/ghiaccio rotto (in base alla superficie) + cristalli + bonus. */
+  /** Punteggio totale: consegne + neve/ghiaccio rotto (in base alla superficie) + cristalli + bonus − renne colpite. */
   get score() {
-    return this.deliveryScore + this.breakScore + this.crystals * SCORE.crystal + this.bonus;
+    return Math.max(0, this.deliveryScore + this.breakScore + this.crystals * SCORE.crystal + this.bonus - this.penalty);
   }
 
   get breakScore() {
@@ -227,6 +233,29 @@ export class Game {
         return;
       }
     }
+  }
+
+  /**
+   * Un corpo in movimento che urta una renna la spaventa (solo stato e animazione: il mondo fisico non cambia,
+   * quindi si può fare dentro la callback). Emette l'evento 'renna' per il verso (audio, M5).
+   */
+  checkReindeer(contact) {
+    let a = contact.getFixtureA().getBody();
+    let b = contact.getFixtureB().getBody();
+    if (a.getUserData()?.kind !== 'reindeer') [a, b] = [b, a];
+    const r = a.getUserData()?.reindeer;
+    if (!r || !b.isDynamic() || b.getLinearVelocity().length() < REINDEER.minSpeed) return;
+    if (r.scare > REINDEER.scareTime - REINDEER.cooldown) return; // già spaventata da un attimo
+    r.scare = REINDEER.scareTime;
+    // Ogni oggetto conta una volta sola per renna: un pacco che rimbalza sulla testa non toglie punti due volte
+    if (r.hitBy.has(b)) return;
+    r.hitBy.add(b);
+    r.hits++;
+    // Colpire una renna toglie un po' di punti
+    this.penalty += SCORE.reindeerPenalty;
+    const p = r.body.getPosition();
+    this.floaters.push({ text: `−${SCORE.reindeerPenalty}`, x: p.x, y: p.y + 2.6, t: 0, big: false, bad: true });
+    this.onEvent?.('renna', r);
   }
 
   aimView() {
@@ -413,6 +442,8 @@ export class Game {
       crystals: this.crystals,
       crystalScore: this.crystals * SCORE.crystal,
       bonus: this.bonus,
+      penalty: this.penalty,
+      reindeerHits: this.reindeer.reduce((n, r) => n + r.hits, 0),
       allServed,
       served: this.houses.filter((h) => h.served > 0).length,
       houses: this.houses.length,
@@ -537,6 +568,8 @@ export class Game {
 
   /** Aggiornamenti a tempo reale (camera, animazioni). */
   frame(dt) {
+    this.time = (this.time || 0) + dt; // tempo reale (animazioni)
+    for (const r of this.reindeer) if (r.scare > 0) r.scare = Math.max(0, r.scare - dt);
     this.sling.update(dt);
     this.particles.update(dt);
     for (const t of this.trees) t.update(dt);

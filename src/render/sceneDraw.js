@@ -2,6 +2,7 @@ import { VIEW_W, VIEW_H, GIFTS } from '../config.js';
 import { WALL } from '../entities/house.js';
 import { centroid } from '../physics/polygon.js';
 import { drawTree, drawPine } from './treeDraw.js';
+import { drawReindeer } from './reindeerDraw.js';
 
 const ZONE_LABEL_OFFSET = 0.9;
 
@@ -58,11 +59,12 @@ export function drawScene(ctx, game, alpha) {
   for (const h of game.houses) drawHouse(ctx, h);
   for (const p of game.pines) drawPine(ctx, p, px);
   for (const t of game.trees) drawTree(ctx, t, px);
+  for (const r of game.reindeer) drawReindeer(ctx, r, game.time || 0);
 
   // Corpi fisici (statici e dinamici), interpolati
   for (let b = pw.world.getBodyList(); b; b = b.getNext()) {
     const ud = b.getUserData();
-    if (!ud || ud.kind === 'ground' || ud.kind === 'house' || ud.kind === 'tree' || ud.kind === 'pine' || ud.kind === 'hill') continue;
+    if (!ud || ud.kind === 'ground' || ud.kind === 'house' || ud.kind === 'tree' || ud.kind === 'pine' || ud.kind === 'reindeer' || ud.kind === 'hill') continue;
     const p = b.getPosition();
     const prev = pw.prev.get(b);
     const x = prev ? lerp(prev.x, p.x, alpha) : p.x;
@@ -277,7 +279,7 @@ function drawWorldLabels(ctx, game) {
     ctx.lineWidth = 5;
     ctx.strokeStyle = '#3a1d00';
     ctx.strokeText(f.text, sx(f.x), sy(f.y));
-    ctx.fillStyle = '#ffd36b';
+    ctx.fillStyle = f.bad ? '#ff7a7a' : '#ffd36b'; // punti tolti in rosso
     ctx.fillText(f.text, sx(f.x), sy(f.y));
   }
   ctx.restore();
@@ -346,6 +348,7 @@ function drawSummary(ctx, game) {
     s.crystals ? `Neve e cristalli: ${s.ice} + ${s.crystals}  ·  ${s.iceScore + s.crystalScore}` : `Neve rotta: ${s.ice}  ·  ${s.iceScore}`,
   ];
   if (s.bonus) lines.push(`Tutte le case servite  ·  +${s.bonus}`);
+  if (s.penalty) lines.push(`Renne spaventate: ${s.reindeerHits}  ·  −${s.penalty}`);
   lines.forEach((l, i) => ctx.fillText(l, VIEW_W / 2, y + 190 + i * 26));
 
   for (const b of game.buttons) {

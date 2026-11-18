@@ -96,6 +96,15 @@ export const PINE = {
   trunkH: 0.9,
 };
 
+/** Renne (decorazione solida che si spaventa quando viene colpita). */
+export const REINDEER = {
+  scareTime: 1.6, // durata della reazione (s)
+  jump: 0.35, // altezza del balzo spaventato (m, solo disegno: il corpo fisico resta fermo)
+  minSpeed: 1, // velocità relativa minima (m/s) perché un urto la spaventi
+  cooldown: 0.4, // appena spaventata ignora altri contatti per questo tempo (un rimbalzo non fa due versi)
+  restitution: 0.45, // il pacco rimbalza
+};
+
 /** Pupazzi di neve: corpo unico finché un colpo non li separa in palle che rotolano. */
 export const SNOWMAN = {
   splitImpulse: 0.8,
@@ -170,6 +179,7 @@ export const SCORE = {
   minPoints: 100,
   maxPoints: 3000,
   repeat: 0.6, // ogni nuova consegna nella stessa apertura vale il 60% della precedente
+  reindeerPenalty: 100, // colpire una renna toglie punti (una volta per spavento)
   perArea: 15, // punti per m² di neve/ghiaccio rotto (un mattone 0.7×0.38 ≈ 4 punti, un blocco cavo grande ≈ 45)
   crystal: 2, // per ogni cristallo staccato dall'albero
   allServedBonus: 1500, // premio se tutte le case ricevono almeno un pacco
