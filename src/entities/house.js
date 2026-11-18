@@ -32,11 +32,32 @@ export const PANE = HOUSE.pane; // mezzo spessore del vetro
 const ZONE_DEPTH = HOUSE.zoneDepth;
 const DOOR_REACH = HOUSE.doorReach;
 
-/** Neve che tappa un'apertura: dorme finché non viene colpita, i suoi pezzi si sciolgono presto. */
-function snowPlug(pw, poly, x, y, angle) {
+/**
+ * Neve che tappa un'apertura: dorme finché non viene colpita, i suoi pezzi si sciolgono presto.
+ * `apertura` ('chimney' | 'door') e la posizione iniziale servono solo all'etichetta "tappato" (hudDraw).
+ */
+function snowPlug(pw, poly, x, y, angle, apertura) {
   const b = createIceBody(pw, poly, x, y, angle, 0, false, 'snow');
-  b.getUserData().plug = true;
+  const ud = b.getUserData();
+  ud.plug = true;
+  ud.apertura = apertura;
+  ud.x0 = x;
+  ud.y0 = y;
   return b;
+}
+
+/**
+ * L'apertura di tipo `tipo` della casa è ancora tappata dalla neve? Sì finché il suo tappo esiste
+ * (non si è rotto) ed è rimasto vicino al posto di partenza (HOUSE.plugMoved).
+ */
+export function isPlugged(house, tipo) {
+  for (const b of house.plugs) {
+    const ud = b.getUserData();
+    if (ud.apertura !== tipo || ud.dead) continue;
+    const p = b.getPosition();
+    if (Math.hypot(p.x - ud.x0, p.y - ud.y0) < HOUSE.plugMoved) return true;
+  }
+  return false;
 }
 
 export function buildHouse(pw, def) {
@@ -145,7 +166,7 @@ export function buildHouse(pw, def) {
         { x: -hw * 0.9, y: 0.08 },
       ];
       const c = T(0, H + 0.16 + GAP);
-      plugs.push(snowPlug(pw, lid, c.x, c.y, a));
+      plugs.push(snowPlug(pw, lid, c.x, c.y, a, 'chimney'));
     }
   }
 
@@ -155,7 +176,7 @@ export function buildHouse(pw, def) {
     const right = (yy) => xl(yy) + WALL / 2 - PANE - GAP;
     const world = [P(x - 1.6, 0), P(right(0), 0), P(right(dh), dh), P(x - 0.45, dh)];
     const c = centroid(world);
-    plugs.push(snowPlug(pw, world.map((p) => ({ x: p.x - c.x, y: p.y - c.y })), c.x, c.y + GAP, 0));
+    plugs.push(snowPlug(pw, world.map((p) => ({ x: p.x - c.x, y: p.y - c.y })), c.x, c.y + GAP, 0, 'door'));
   }
 
   body.setUserData({ kind: 'house' });

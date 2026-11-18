@@ -28,7 +28,8 @@ snow and ice that break realistically. A parcel is delivered (and scores points)
 | Obstacle iterations (snow, tree, arches, ice sculptures, igloo) | ✅ on desktop only |
 | Opening camera sequence, level selector | ✅ (part of M5 brought forward) |
 | **M4 setting** (direction A "Notte di velluto": parallax backdrop, cartoon houses with three rooms, snow caps, falling snow, HUD, quality tiers) | ✅ on desktop Chrome only — **not measured on the phone** |
-| **M5 direction and UX** (audio, "Buone Feste" end screen, HUD, progression between levels) | 🟡 partial |
+| **M5 direction and UX**: synthesized audio (effects + music + mute), "Buone Feste" end screen, plugged-opening labels, tap-to-fast-forward | ✅ desktop Chrome headless only — **not listened to, not on the phone** |
+| M5 rest: progression between levels, total stars | ❌ |
 | **M6 polish** (quality tiers, offline PWA, iOS tests, HTTPS publishing) | ❌ |
 | Level 3 "La tormenta" (chairlift + wind) | ❌ only proposed |
 
@@ -43,7 +44,7 @@ npm run build      # static output in dist/
 ```
 - `.claude/launch.json` has the `xmas-dev` configuration (for the Claude desktop app's Browser pane).
 - URL parameters: `?debug` (HUD with FPS/physics/bodies + "Sveglia pile" and "Stress +40" buttons), `?level=<id>` (opens a level).
-- Keys: `R` reset, `L` level selector, `Esc` closes the selector; with `?debug` also `W` wake everything, `S` stress.
+- Keys: `R` reset, `L` level selector, `Esc` closes the selector, `M` mute/unmute; with `?debug` also `W` wake everything, `S` stress.
 
 ### Levels (`src/game/levels/`, order in `index.js`)
 **One level for now** (user decision, 18/11): `il-villaggio` — from the left: pine, sleigh, sling, **crystal tree right after the sling**, arcade fort (2 arches × 2 storeys, ice bridge, snowmen) towards the houses, house A on the ground (snow drift at the door), **pine between the houses**, house B on a 3 m hill (snow cap on the chimney), **three pines** after it. Currently **very hard** (medium simulated player 1.6 deliveries out of 5): scoring/difficulty to be tuned later (user decision). The old JSONs (`villaggio-albero`, `villaggio-fortini`, `la-collina`) are still in the folder but not listed and use superseded keys.
@@ -64,6 +65,7 @@ npm run build      # static output in dist/
   - `xmas.fire(type, angle, pull)` — performs the throw in the visible game (only in the `ready` state: use `xmas.game.endIntro()` first if the intro is running).
   - `xmas.findShot(type, zone, a0, a1, p0, p1)` — searches for a throw that delivers through an opening.
   - `xmas.wakeAll()`, `xmas.stress()`.
+  - `xmas.audio` — sound direction: `motore` (`ctx`, `muto`, buses), `musica`, `commuta()` (mute toggle), `stats` = `{suoni: {name: count}, maxVoci, scartati}` (reset by hand, e.g. `xmas.audio.stats.suoni = {}`). The AudioContext exists only after the first real gesture: in headless Chrome use CDP `Input.dispatchMouseEvent` (not `element.click()`), see GDD "M5".
 - **Stability test** (always run it after touching structures): save the positions of `game.slabs`, `xmas.wakeAll()`, wait 6–8 s, measure the maximum displacement and `game.fracture.broken`; everything has to go back to sleep (`pw.counts().awake === 0`) without breaking. Current reference: ≤ 3 cm (`npm test`; il-villaggio 0.5 cm) (they are the filler blocks beside the outer arches that settle), 0 breaks.
 - **Difficulty grid**: loop over `angle 0.1→1.35 step 0.05` × `pull 1.2→2.2 step 0.1` (546 throws per gift) with `new Game(level)` + `launch()` + `step()` up to 480 steps, counting the deliveries per opening. It takes ~30–40 s per level: run it in the background (async) and read the result with a second call (the JS tool has a 45 s timeout).
 - Fracture patterns and missing merlons are **random** → the simulations are not perfectly reproducible.
@@ -81,7 +83,13 @@ Vite + vanilla JS (ES modules), **Planck.js 1.5** (Box2D port) for physics, **Ca
 src/
 ├─ main.js               bootstrap: canvas/resize/letterbox, fullscreen, input → game, loop, level selector,
 │                        best score (localStorage), debug tools (window.xmas)
-├─ config.js             ALL tunable constants (camera, materials, thresholds, scoring, times) — commented
+├─ config.js             ALL tunable constants (camera, materials, thresholds, scoring, times, AUDIO, FAST) — commented
+├─ audio/                synthesized Web Audio, no files (M5)
+│  ├─ motore.js          AudioContext (created on the first gesture), buses sfx/music → master → compressor, shared noise buffer,
+│  │                     voice limit (AUDIO.maxVoices), mute (suspends the context, localStorage), visibility suspend/resume, stats
+│  ├─ effetti.js         the sounds: band tension (continuous), launch, snow/ice/snowman breaks, glass, delivery bells, reindeer, cancel, jingle, fast-forward
+│  ├─ musica.js          "Jingle Bells" chorus (1857, public domain) in our own arrangement: lookahead sequencer on the context clock
+│  └─ regia.js           avviaAudio(game, {button}): game events → sounds, break grouping, music ducking, mute button + M key; `aggiorna()` every frame
 ├─ style.css             phone frame on desktop, DOM buttons, selector, "rotate the phone" overlay
 ├─ core/
 │  ├─ loop.js            fixed 1/60 timestep with accumulator + interpolation; FPS cap = draw every N-th screen refresh
@@ -124,6 +132,7 @@ src/
 │  ├─ levelBuilder.js    buildLevel(pw, json) → forts, slabs, trees, hills, pines, reindeer, houses (order matters: seeded rng)
 │  ├─ contacts.js        contact callbacks (glass, chimney edge, reindeer, impulses → Fracture), queues, shatterGlass
 │  ├─ turn.js            turn states: launch, giftsResting, nextTurn, endLevel, flight/settle transitions
+│  │                     (fast-forward: `game.accelera()` / `game.passiPerAggiornamento`, run by `update()` in main.js)
 │  ├─ gestures.js        pointerDown/Move/Up: carry from the sleigh, aim (frozen camera), pan; trajectory preview
 │  ├─ scoring.js         deliver, deliveries/lost parcels after the step, total score, end-of-level summary
 │  ├─ intro.js           opening camera move
@@ -149,7 +158,8 @@ docs/GDD.md              design + chronological history of the iterations with m
 
 ### Turn state machine (`game.state`)
 `intro` (continuous camera move houses → panorama → sling, 4.2 s, a tap skips it) → `ready` (pick/aim) → `flight` (camera follows the parcel)
-→ `settle` (waits for the scene to sleep, max 4 s; 1.6 s minimum after a delivery; a tap skips it) → `ready`… → `end` (when **no parcels are left to throw**: panel with stars, score, "Livelli" / "Riprova").
+→ `settle` (waits for the scene to sleep, max 4 s; 1.6 s minimum after a delivery) → `ready`… → `end` (when **no parcels are left to throw**: "Buone Feste!" panel with stars, score, "Livelli" / "Riprova").
+**Fast-forward** (M5): a tap during `flight` or `settle` sets `game.veloce` → `FAST.steps` (4) physics steps per loop update (stopped early if they exceed `FAST.budgetMs`), "▶▶" badge; it ends by itself when the state leaves flight/settle. Same fixed-dt step sequence → same outcome (verified). Nothing that the physics/rules read may depend on real time: the reindeer "already scared" cooldown uses `game.simTime` (physics time).
 
 ### Physics: key points
 - **Units**: metres, kg, s. Logical view 1280×600 (2.13:1); camera `viewW` = visible metres.
@@ -175,8 +185,23 @@ docs/GDD.md              design + chronological history of the iterations with m
 | `consegna` | `{tipo: 'chimney' / 'window' / 'door', punti, casa (index), ripetizione (1 = first), x, y}` |
 | `renna` | `{renna, x, y, colpi, punti (−100), daPacco}` (queued in the callback, emitted after the step) |
 | `fine` | end-of-level summary (main.js saves the best score with it; the old `onEnd`/`onEvent` are gone) |
+| `accelera` | `{stato}` a tap started the fast-forward (flight/settle) |
 
-`onLevels()` stays a plain callback (end panel "Livelli" button). No sound yet.
+`onLevels()` stays a plain callback (end panel "Livelli" button).
+
+### Sounds (M5, `src/audio/regia.js`, constants in `AUDIO`)
+| Event | Sound |
+|---|---|
+| `tensione` | continuous band tone (filtered saw + triangle, tremolo), 150→520 Hz with tension², followed every frame while `game.mode === 'aim'` |
+| `annullato` | small muffled descending "thunk" |
+| `lancio` | snap (noise click + 260→70 Hz twang) + air whoosh, longer/louder with `velocita` |
+| `rottura` | snow: soft thump + low-pass rustle; ice: 3–5 crystalline tinkles; snowman: deeper thump. **Grouped**: ≤ `breakMax` (2) sounds per material every `breakWindow` (0.1 s), the strongest; extra breaks raise the group volume. Volume from `forza` (log) and `area` |
+| `vetro` | high noise crash + 9 falling shards (one sound per 80 ms) |
+| `consegna` | pentatonic bells: door 2 notes, window 3, chimney 5 + chord + sparkle; starting note C5→G5 with points; repeats one note shorter |
+| `renna` | funny bleat/honk (saw through two moving formants, pitch up-down, wide vibrato, 0.42 s) |
+| `fine` | bell jingle (one more note per star), then music fades to 40% |
+| `accelera` | short fast whoosh |
+Music: "Jingle Bells" chorus, own arrangement (plucked melody that moves to bells every other loop, oom-pah bass, sleigh bells on eighths, glockenspiel arpeggios on held notes, 2 bars of rest), C major, 116 bpm, volume 0.12, 45% while aiming. Max 14 simultaneous effect voices. Mute button `#muto-btn` (SVG speaker) + `M`, saved in `localStorage['xmas-muto']`; muted = context suspended.
 
 ### Level JSON schema
 ```jsonc
@@ -215,6 +240,8 @@ docs/GDD.md              design + chronological history of the iterations with m
 - Parcels: small 0.4 m (light, damage 0.5), standard 0.55 m, big 0.8×0.6 m (heavy, damage 1.6). Max velocity ~24 m/s.
 - **Delivery**: one formula for every opening, **measured difficulty only, snow included**: `1000·(60/valid shots)^0.75`, 50–3000, generated by `tools/sim/score.mjs`. Each repeated delivery in the same opening is worth 60% of the previous one. A throw serves at most one house (the parcel disappears). A house can receive several parcels (each one scores).
 - **Score** = deliveries + 15 points per m² of broken snow/ice + 2 per crystal + **1500 if every house has received at least one parcel**. Stars: 1st = two cheapest deliveries; 2nd/3rd from simulated players.
+- A tap during the flight or the settling **speeds the simulation up** (×4) instead of skipping: the turn still ends only when the parcels are still.
+- Opening labels turn **light blue with a snowflake** while a snow plug (chimney cap / door drift) is still in place (`isPlugged`, `HOUSE.plugMoved`).
 - The level **ends only when the parcels run out**. End panel with stars (level thresholds), details, "Livelli" and "Riprova". Best score per level saved on the device.
 - Glass in doors and windows: always broken by a parcel. Snow on the chimney/at the door: has to be removed (it breaks or falls).
 
@@ -222,7 +249,7 @@ docs/GDD.md              design + chronological history of the iterations with m
 
 1. **Engine**: Planck.js (Box2D) — chosen for stacking stability and bullet CCD without WASM. Verified on the S21: 158 bodies at 60 FPS.
 2. **Platforms**: Android Chrome in landscape + desktop with a frame; fullscreen on the first tap; iPhone via "Add to Home Screen" (PWA manifest present).
-3. **3 levels** of increasing difficulty; **no personalised message**; **parcels with physical variants**; **audio: effects + music** (still to do).
+3. **3 levels** of increasing difficulty; **no personalised message**; **parcels with physical variants**; **audio: effects + music** (done in M5, synthesized; music = "Jingle Bells" PD with our own arrangement).
 4. Original ice "castle of cards" → **rejected as not fitting the theme** (mountain setting). Replaced by snow. The ice came back only as **sculptures** (prisms, leaning slabs, crystals) on top of the forts, at the user's request.
 5. Snow forts: **only arcades** are kept. The "posts and planks" structures and the "lattice" wall were tried and **rejected as ugly**.
 6. **Crystal tree** (variant): kept, smaller, more visible branches, crystals **attached to the branches** (not uniform). Trunk and branches **sinuous**, crystals of **many shapes** (drops, snow, icicles…).
@@ -246,6 +273,7 @@ docs/GDD.md              design + chronological history of the iterations with m
 - The filler blocks beside the outer arches settle by 4–7 cm when they wake up (harmless, but visible if you look closely).
 - The scenery isn't designed for the iPhone: the "rotate the phone" overlay and the hint for adding it to the Home Screen exist, but have never been tested on iOS.
 - The old `iceTower.js` and the "wall" fort type (without arches) are no longer used in the levels.
+- Audio: verified only by counting the requested sounds/voices in headless Chrome (no audio output there); never listened to, never tested on Android/iOS (iOS needs the first touch to unlock — same code path, untested).
 - Automated checks: only `npm test` (stability); the rest is verified with the `tools/sim` measurements and in the browser/phone with the `xmas.*` helpers.
 - Phone: the level name is now drawn below the DOM buttons using their measured height (`hudTop`); to confirm on the real S21.
 
@@ -253,7 +281,7 @@ docs/GDD.md              design + chronological history of the iterations with m
 
 1. **Phone test** of the current state (all 3 levels; FPS during collapses; gestures; intro; selector).
 2. **M4 setting**: implemented (see GDD, "M4 «ambientazione»"). Left to do: phone measurements and tuning of `GFX.tiers`/`GFX.auto`; user's choices still open: bundled rounded web font or system fonts, optional foreground layer (advised against), minimal reindeer idle animation already in place.
-3. **M5**: Web Audio (band tension, launch, ice/glass/snow, delivery chimes, music loop with mute), "Buone Feste" end screen, progression to the next level, total stars.
+3. **M5**: audio, "Buone Feste", plugged labels and fast-forward are done (GDD "M5 «regia e audio»"): **listen to them for real** (desktop + S21: volumes, ducking, the reindeer voice, how dense a collapse sounds; tune `AUDIO`), check the fast-forward FPS on the phone during a collapse. Left: progression to the next level, total stars.
 4. **Level 3 "La tormenta"**: proposed with a swinging chairlift (Planck joints) and wind that pushes the parcel; to be agreed with the user.
 5. **M6**: quality tiers, offline service worker, publishing over HTTPS (installable PWA), iOS test.
 

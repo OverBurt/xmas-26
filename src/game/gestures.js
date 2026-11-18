@@ -22,9 +22,9 @@ export function pointerDown(g, p) {
     if (b?.action === 'levels') g.onLevels?.();
     return;
   }
-  if (g.state === 'settle') {
-    // Tocco durante l'assestamento: salta l'attesa.
-    g.nextTurn();
+  if (g.state === 'flight' || g.state === 'settle') {
+    // Tocco durante il volo o l'assestamento: la simulazione accelera (il turno finisce comunque a pacchi fermi).
+    g.accelera();
     g.mode = null;
     return;
   }

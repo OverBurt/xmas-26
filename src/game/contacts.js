@@ -93,8 +93,11 @@ function checkReindeer(g, contact) {
   if (a.getUserData()?.kind !== 'reindeer') [a, b] = [b, a];
   const r = a.getUserData()?.reindeer;
   if (!r || !b.isDynamic() || b.getLinearVelocity().length() < REINDEER.minSpeed) return;
-  if (r.scare > REINDEER.scareTime - REINDEER.cooldown) return; // già spaventata da un attimo
-  r.scare = REINDEER.scareTime;
+  // Già spaventata da un attimo: si misura in tempo fisico (simTime), così l'esito non dipende dalla
+  // velocità di riproduzione (accelerazione dei tempi morti) né dal frame rate.
+  if (g.simTime - r.spaventata < REINDEER.cooldown) return;
+  r.spaventata = g.simTime;
+  r.scare = REINDEER.scareTime; // animazione (decresce col tempo reale in game.frame)
   // Ogni oggetto conta una volta sola per renna: un pacco che rimbalza sulla testa non toglie punti due volte
   if (r.hitBy.has(b)) return;
   r.hitBy.add(b);

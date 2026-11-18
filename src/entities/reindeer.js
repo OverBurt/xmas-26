@@ -30,7 +30,7 @@ export function buildReindeer(pw, def) {
     body.createFixture({ shape: new Circle(new Vec2(0, 0.98), 0.5), ...fx });
     body.createFixture({ shape: new Circle(new Vec2(0, 1.64), 0.36), ...fx });
   }
-  const r = { body, x: def.x, g, pose, facing: v, scare: 0, hits: 0, hitBy: new Set() }; // hitBy: oggetti che l'hanno già colpita
+  const r = { body, x: def.x, g, pose, facing: v, scare: 0, spaventata: -Infinity, hits: 0, hitBy: new Set() }; // hitBy: oggetti che l'hanno già colpita
   body.setUserData({ kind: 'reindeer', reindeer: r });
   return r;
 }

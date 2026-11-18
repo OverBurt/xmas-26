@@ -69,6 +69,11 @@ canvas#game {
 
 #controls button:active { background: rgba(60, 74, 138, 0.9); }
 
+/* Pulsante muto: icona SVG centrata, alta come gli altri pulsanti; spento = più tenue */
+#controls button.icona { display: inline-flex; align-items: center; justify-content: center; padding: 8px 13px; }
+#controls button.icona svg { display: block; }
+#controls button.icona.spento { color: rgba(255, 255, 255, 0.55); }
+
 #rotate {
   display: none;
   position: fixed;

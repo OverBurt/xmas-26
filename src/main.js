@@ -1,5 +1,5 @@
 import { Box, Vec2 } from 'planck';
-import { VIEW_W, VIEW_H, MAX_DPR, SLING } from './config.js';
+import { VIEW_W, VIEW_H, MAX_DPR, SLING, FAST } from './config.js';
 import { startLoop } from './core/loop.js';
 import { attachInput } from './core/input.js';
 import { setupFullscreen } from './core/fullscreen.js';
@@ -7,6 +7,7 @@ import { Game } from './game/game.js';
 import { drawScene } from './render/sceneDraw.js';
 import { quality, initQuality, sampleQuality } from './render/quality.js';
 import { LEVELS, findLevel } from './game/levels/index.js';
+import { avviaAudio } from './audio/regia.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
 initQuality(new URLSearchParams(location.search)); // ?qualita=alta|media|bassa fissa il livello grafico
@@ -59,6 +60,9 @@ const store = {
 };
 const params = new URLSearchParams(location.search);
 const game = new Game(findLevel(params.get('level') || store.get('xmas-level', null)));
+
+// Audio sintetizzato (src/audio/): si sblocca al primo tocco, pulsante muto e tasto M
+const audio = avviaAudio(game, { button: document.getElementById('muto-btn') });
 
 // Miglior punteggio per livello (solo su questo dispositivo)
 game.on('fine', (s) => {
@@ -162,10 +166,26 @@ const perf = {
   worstFrameMs: 0, // intervallo più lungo tra due frame
   reset() { this.frames = 0; this.renderMs = 0; this.worstMs = 0; this.worstFrameMs = 0; },
 };
+/**
+ * Un aggiornamento del loop = uno step fisico; se il giocatore ha accelerato (tocco durante volo/assestamento)
+ * ne seguono altri, sempre a dt fisso: la sequenza di step è identica, cambia solo quanti per frame.
+ * Oltre FAST.budgetMs di calcolo ci si ferma (si accelera meno, l'esito non cambia).
+ */
+function update(dt) {
+  game.step(dt);
+  if (game.passiPerAggiornamento <= 1) return;
+  const t0 = performance.now();
+  for (let i = 1; i < game.passiPerAggiornamento; i++) {
+    game.step(dt);
+    if (performance.now() - t0 > FAST.budgetMs) break;
+  }
+}
+
 startLoop({
-  update: (dt) => game.step(dt),
+  update,
   render(alpha, elapsed, stats) {
     game.frame(elapsed);
+    audio.aggiorna();
     ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
     const t0 = performance.now();
     drawScene(ctx, game, alpha, { debug: DEBUG, hudTop: controlsBottom });
@@ -216,4 +236,4 @@ function findShot(type, zone, a0 = 0.1, a1 = 1.35, p0 = 1.2, p1 = 2.2) {
 }
 
 // Accesso da console/DevTools per test e taratura.
-window.xmas = { game, wakeAll, stress, sim, fire, findShot, perf, quality };
+window.xmas = { game, wakeAll, stress, sim, fire, findShot, perf, quality, audio };

@@ -1,4 +1,4 @@
-import { CAMERA, SCORE, TURN } from '../config.js';
+import { CAMERA, SCORE, TURN, FAST } from '../config.js';
 import { Camera } from '../core/camera.js';
 import { Emitter } from '../core/emitter.js';
 import { PhysicsWorld } from '../physics/world.js';
@@ -35,6 +35,7 @@ import { deliver, checkDeliveries, totalScore, breakScore, crystals } from './sc
  *               ripetizione = consegne in quell'apertura compresa questa (1 = prima)
  *  'renna'     {renna, x, y, colpi, punti, daPacco}   renna spaventata e punti tolti (punti negativi)
  *  'fine'      riepilogo (vedi scoring.summarize)    fine livello
+ *  'accelera'  {stato}                                un tocco durante volo/assestamento accelera la simulazione
  * Gli ascoltatori sopravvivono a reset() e setLevel().
  *
  * Callback rimasta: onLevels() (pulsante "Livelli" del pannello finale, la gestisce main.js).
@@ -71,6 +72,8 @@ export class Game extends Emitter {
     this.current = null; // pacco in volo
     this.state = 'ready';
     this.stateTime = 0;
+    this.simTime = 0; // tempo fisico dall'inizio del livello (s): avanza solo con gli step, mai col tempo reale
+    this.veloce = false; // simulazione accelerata (tocco durante volo/assestamento), vedi passiPerAggiornamento
     this.trajectory = [];
     this.carry = null; // pacco trascinato dalla slitta {gift, x, y, moved}
     this.mode = null; // gesto in corso: 'aim' | 'carry' | 'pan'
@@ -96,6 +99,7 @@ export class Game extends Emitter {
     const prima = this.state;
     this.state = s;
     this.stateTime = 0;
+    if (s !== 'flight' && s !== 'settle') this.veloce = false; // l'accelerazione vale per un solo tiro
     this.emit('stato', { stato: s, prima });
   }
 
@@ -163,12 +167,28 @@ export class Game extends Emitter {
     endLevel(this);
   }
 
+  /**
+   * Tocco durante il volo o l'assestamento: la simulazione accelera (FAST.steps step per aggiornamento)
+   * finché il turno non finisce da solo, a pacchi fermi. Gli step sono gli stessi di prima: l'esito non cambia.
+   */
+  accelera() {
+    if ((this.state !== 'flight' && this.state !== 'settle') || this.veloce || FAST.steps <= 1) return;
+    this.veloce = true;
+    this.emit('accelera', { stato: this.state });
+  }
+
+  /** Step fisici da eseguire per ogni aggiornamento del loop (1, oppure FAST.steps se si accelera). */
+  get passiPerAggiornamento() {
+    return this.veloce && (this.state === 'flight' || this.state === 'settle') ? FAST.steps : 1;
+  }
+
   // ---------------------------------------------------------------- update
 
   /** Passo fisico a timestep fisso. L'ordine delle fasi fa parte del comportamento (generatore con seme). */
   step(dt) {
     this.pw.step();
     this.stateTime += dt;
+    this.simTime += dt;
     for (const t of this.trees) t.collide(this.thrown, this.pw.prev);
 
     // Rotture raccolte durante lo step (evento 'rottura'), poi detriti che svaniscono

@@ -55,7 +55,7 @@ export function nextTurn(g) {
 export function endLevel(g) {
   g.summary = summarize(g);
   // Pulsanti in basso nel pannello (coordinate logiche)
-  const by = VIEW_H / 2 + 120;
+  const by = VIEW_H / 2 + 136; // sotto il dettaglio del pannello "Buone Feste" (hudDraw.drawSummary)
   g.buttons = [
     { action: 'levels', label: 'Livelli', x: VIEW_W / 2 - 230, y: by, w: 210, h: 56, secondary: true },
     { action: 'retry', label: 'Riprova', x: VIEW_W / 2 + 20, y: by, w: 210, h: 56 },

@@ -130,6 +130,7 @@ export const HOUSE = {
   doorReach: 0.55, // la zona della porta sporge davanti al vetro: metà del pacco grande (0.4) + vetro + margine
   pane: 0.045, // mezzo spessore del vetro
   chimneyEdge: 0.07, // tolleranza per un contatto sul lato interno del camino (metà del bordo superiore): vale la consegna
+  plugMoved: 0.35, // neve su camino/porta spostata di più di così (m) non tappa più: l'etichetta torna normale (solo disegno)
 };
 
 /** Vetri di porte e finestre: si infrangono se l'urto supera la soglia, altrimenti il pacco rimbalza. */
@@ -289,4 +290,35 @@ export const GFX = {
     pacchi: { small: ['#4fe0b5', '#ffffff'], standard: ['#ff6f61', '#ffe08a'], big: ['#ffc94a', '#d8344a'] },
     contorno: '#1d1442', traiettoria: '#fff1c2', hud: 'rgba(9,13,42,0.66)', hudBordo: 'rgba(255,255,255,0.18)',
   },
+};
+
+/**
+ * Accelerazione dei tempi morti (M5): un tocco durante il volo o l'assestamento fa girare più step fisici
+ * per ogni aggiornamento. La sequenza di step è la stessa di un volo normale, quindi l'esito non cambia:
+ * cambia solo quanto in fretta lo si vede.
+ */
+export const FAST = {
+  steps: 4, // step fisici per aggiornamento quando si accelera (1 = velocità normale)
+  budgetMs: 10, // se gli step extra di un aggiornamento superano questo tempo ci si ferma (telefoni lenti: si accelera meno)
+};
+
+/**
+ * Audio (M5): tutto sintetizzato con Web Audio (src/audio/), nessun file. Volumi lineari 0–1.
+ * Si sblocca al primo tocco/clic/tasto, si sospende quando la pagina è nascosta.
+ */
+export const AUDIO = {
+  master: 0.8, // volume generale
+  sfx: 0.9, // bus degli effetti
+  music: 0.12, // musica: bassa, sotto gli effetti
+  musicAim: 0.45, // durante la mira la musica scende a questa frazione
+  musicEnd: 0.4, // a fine livello la musica si attenua a questa frazione (dopo il jingle)
+  duckTime: 0.25, // costante di tempo (s) delle variazioni di volume della musica
+  tempo: 116, // battiti al minuto della musica
+  maxVoices: 14, // voci di effetti suonabili insieme (oltre, i nuovi suoni deboli vengono scartati)
+  /** Rotture raggruppate: al massimo `breakMax` suoni per materiale ogni `breakWindow` s; il resto si somma al volume. */
+  breakWindow: 0.1,
+  breakMax: 2,
+  glassWindow: 0.08, // vetri ravvicinati: un solo suono
+  tension: { f0: 150, f1: 520, gain: 0.025 }, // tono dell'elastico: frequenza a riposo e a tensione massima, volume
+  storageKey: 'xmas-muto', // preferenza del pulsante muto (localStorage)
 };
