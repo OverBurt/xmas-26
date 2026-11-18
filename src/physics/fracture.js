@@ -207,8 +207,6 @@ export function createSnowball(pw, r, x, y, angle, role) {
 
 // ---------------------------------------------------------------- gestore
 
-const POWDER = { size: [0.08, 0.22], life: [0.6, 1.3], gravity: 1.5, drag: 2.5, spread: 0.5 };
-
 /**
  * Gestore delle rotture: durante lo step raccoglie gli impulsi oltre soglia,
  * dopo lo step sostituisce i corpi con i loro pezzi (il mondo non si può modificare dentro lo step).
@@ -222,6 +220,11 @@ export class Fracture {
     this.brokenArea = 0; // m² di neve/ghiaccio rotto (punteggio proporzionale alla superficie)
     /** Pacchi che hanno sfondato la neve in questo step (vengono rallentati). */
     this.absorbed = new Set();
+    /**
+     * Callback ({materiale, area, x, y, pezzi, forza, daPacco}) per ogni rottura applicata, chiamata da process()
+     * cioè dopo lo step (mai dentro le callback di contatto). La usa Game per l'evento 'rottura'.
+     */
+    this.onBreak = null;
   }
 
   threshold(ud) {
@@ -280,6 +283,9 @@ export class Fracture {
       const extra = ud.pieces ? ud.pieces.length - 1 : ud.kind === 'snowman' ? 2 : 0;
       if (count + extra > FRACTURE.maxBodies) continue; // salta solo le rotture che aggiungono corpi
 
+      const at = body.getPosition();
+      const x = at.x;
+      const y = at.y;
       let pieces;
       if (ud.kind === 'snowman') pieces = this.splitSnowman(body);
       else if (ud.pieces) pieces = this.shatter(body, eff, ud.pieces);
@@ -293,6 +299,7 @@ export class Fracture {
         this.brokenArea += ud.area || 0;
       }
       if ((ud.kind === 'snow' || ud.kind === 'snowman') && by && !by.getUserData()?.dead) this.absorbed.add(by);
+      this.onBreak?.({ materiale: ud.kind, area: ud.area || 0, x, y, pezzi: pieces.length, forza: eff, daPacco: !!by });
     }
 
     // La neve frena il pacco che la sfonda
@@ -375,7 +382,7 @@ export class Fracture {
   }
 
   powder(x, y, n, speed) {
-    this.particles?.burst(x, y, n, speed, '#f4f8ff', POWDER);
+    this.particles?.burst(x, y, n, speed, '#f4f8ff', SNOW.powder);
   }
 
   /** Detriti piccoli: svaniscono dopo qualche secondo. Restituisce i corpi rimossi. */

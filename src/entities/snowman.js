@@ -1,4 +1,5 @@
-import { Box, Circle, Vec2, Settings } from 'planck';
+import { Box, Circle, Vec2 } from 'planck';
+import { GAP } from '../physics/polygon.js';
 import { SNOW, SNOWMAN } from '../config.js';
 import { random } from '../core/rng.js';
 
@@ -12,8 +13,7 @@ const OVERLAP = 0.12; // le palle sono un po' "schiacciate" l'una sull'altra
  */
 export function buildSnowman(pw, x, y) {
   const [r0, r1, r2] = SNOWMAN.radii;
-  const gap = 2 * Settings.polygonRadius - Settings.linearSlop;
-  const body = pw.world.createBody({ type: 'dynamic', position: new Vec2(x, y + gap), awake: false });
+  const body = pw.world.createBody({ type: 'dynamic', position: new Vec2(x, y + GAP), awake: false });
   const fx = { density: SNOW.density, friction: SNOW.friction, restitution: SNOW.restitution };
 
   const y0 = r0 + 0.03;

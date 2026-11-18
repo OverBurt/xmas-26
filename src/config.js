@@ -4,7 +4,11 @@
 export const VIEW_W = 1280;
 export const VIEW_H = 600;
 
-/** Tetto al rendering: sugli schermi a 120 Hz si disegna a 60 FPS (batteria). */
+/**
+ * Tetto al rendering (batteria). Si disegna un frame ogni N aggiornamenti dello schermo, con N intero e fisso
+ * (cadenza regolare, niente scatti): N = il più grande intero con frequenza/N ≥ MAX_FPS (vedi src/core/loop.js).
+ * 60 Hz → 60 FPS, 90 Hz → 90, 120 Hz → 60, 144 Hz → 72, 240 Hz → 60.
+ */
 export const MAX_FPS = 60;
 
 /** Camera. */
@@ -66,6 +70,8 @@ export const SNOW = {
    * Anche la soglia di rottura scala con la densità.
    */
   storeyDensity: [1.5, 1.0, 0.7],
+  /** Polvere (particelle, solo disegno) quando la neve si sbriciola: dimensione (m) e vita (s) min–max, gravità, attrito, apertura. */
+  powder: { size: [0.08, 0.22], life: [0.6, 1.3], gravity: 1.5, drag: 2.5, spread: 0.5 },
 };
 
 /** Albero con chioma di cristalli di neve (variante al fortino). */
@@ -112,6 +118,20 @@ export const SNOWMAN = {
   radii: [0.5, 0.37, 0.27],
 };
 
+/**
+ * Casa in sezione (src/entities/house.js; il disegno in src/render/houseDraw.js usa gli stessi valori).
+ * Misure in metri.
+ */
+export const HOUSE = {
+  wall: 0.28, // spessore dei muri
+  eave: 0.35, // sporgenza della gronda oltre il muro
+  chimneyWall: 0.14, // spessore delle pareti del camino
+  zoneDepth: 0.6, // profondità della zona di consegna dietro porta e finestre (oltre il muro)
+  doorReach: 0.55, // la zona della porta sporge davanti al vetro: metà del pacco grande (0.4) + vetro + margine
+  pane: 0.045, // mezzo spessore del vetro
+  chimneyEdge: 0.07, // tolleranza per un contatto sul lato interno del camino (metà del bordo superiore): vale la consegna
+};
+
 /** Vetri di porte e finestre: si infrangono se l'urto supera la soglia, altrimenti il pacco rimbalza. */
 export const GLASS = {
   breakImpulse: 0.8, // massa × velocità d'impatto normale (N·s)
@@ -120,6 +140,7 @@ export const GLASS = {
   restitution: 0.1,
   slowdown: 0.85, // velocità residua del pacco dopo aver sfondato il vetro
   shardLife: 1.8,
+  shardInherit: 0.35, // frazione della velocità di chi rompe il vetro trasmessa alle schegge
 };
 
 /** Rottura del ghiaccio (pre-frattura, vedi GDD §2.2). */
@@ -166,6 +187,11 @@ export const SLING = {
   minTension: 0.12, // sotto questa tensione il rilascio annulla il tiro
 };
 
+/** Gesti sullo schermo (px logici, vista 1280×600). */
+export const GESTURE = {
+  tapSlop: 12, // un pacco preso dalla slitta e spostato meno di così è un tocco (lo carica), non un trascinamento
+};
+
 /**
  * Punteggio. Le consegne valgono quanto scritto nel JSON del livello, generato da `node tools/sim/score.mjs <livello>`
  * con una formula unica per tutte le aperture (solo difficoltà misurata, neve sulle aperture compresa):
@@ -183,6 +209,9 @@ export const SCORE = {
   perArea: 15, // punti per m² di neve/ghiaccio rotto (un mattone 0.7×0.38 ≈ 4 punti, un blocco cavo grande ≈ 45)
   crystal: 2, // per ogni cristallo staccato dall'albero
   allServedBonus: 1500, // premio se tutte le case ricevono almeno un pacco
+  zoneGlow: 1.6, // secondi di bagliore dell'apertura dopo una consegna
+  floaterLife: 1.8, // secondi di vita dei punti che salgono nel mondo ("+1000")
+  floaterRise: 0.8, // velocità (m/s) con cui salgono
 };
 
 /** Regia d'apertura del livello: un unico movimento continuo case → panoramica → lancio. */
@@ -199,6 +228,7 @@ export const TURN = {
   maxGiftWait: 10, // attesa massima che i pacchi lanciati si fermino (poi si va avanti comunque)
   deliveryLinger: 1.6, // dopo una consegna la camera resta sulla casa
   panReturn: 2, // dopo un pan manuale la camera torna alla fionda
+  outMargin: 5, // un pacco oltre i limiti del livello (o sotto il terreno) di questi metri è perso
 };
 
 export const TRAJECTORY = {

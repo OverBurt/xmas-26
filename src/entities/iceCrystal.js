@@ -1,7 +1,5 @@
-import { Settings } from 'planck';
 import { createIceBody } from '../physics/fracture.js';
-
-const GAP = 2 * Settings.polygonRadius - Settings.linearSlop;
+import { GAP } from '../physics/polygon.js';
 
 /**
  * Cristallo di ghiaccio: prisma a base piatta (sta in piedi) con la punta a "matita",

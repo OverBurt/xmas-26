@@ -1,6 +1,6 @@
 # Xmas-26 — Handoff guide
 
-> Document to pick up the project without prior context. It describes the current state (17/11/2026),
+> Document to pick up the project without prior context. It describes the current state (18/11/2026),
 > how to run and test the game, the architecture, the rules in force, the decisions made with the user and the next steps.
 > The detailed, chronological history of every iteration (with measurements) is in [GDD.md](GDD.md), from §7 onwards.
 
@@ -60,7 +60,7 @@ npm run build      # static output in dist/
 ### In the browser (desktop)
 - Open `http://localhost:5173/?debug&level=<id>`. The page exposes `window.xmas`:
   - `xmas.game` — instance of `Game` (state, `pw.world` Planck, `slabs`, `houses`, `forts`, `trees`, `camera`…).
-  - `xmas.sim(type, angle, pull)` — simulates a throw in a **separate world** (does not touch the visible game) and returns the opening reached (`'door'|'window'|'chimney'|null`). `angle` in radians above the horizontal, `pull` in metres (max 2.2).
+  - `xmas.sim(type, angle, pull)` — simulates a throw in a **separate world** (does not touch the visible game) and returns the opening reached (`'door' / 'window'|'chimney'|null`). `angle` in radians above the horizontal, `pull` in metres (max 2.2).
   - `xmas.fire(type, angle, pull)` — performs the throw in the visible game (only in the `ready` state: use `xmas.game.endIntro()` first if the intro is running).
   - `xmas.findShot(type, zone, a0, a1, p0, p1)` — searches for a throw that delivers through an opening.
   - `xmas.wakeAll()`, `xmas.stress()`.
@@ -84,17 +84,22 @@ src/
 ├─ config.js             ALL tunable constants (camera, materials, thresholds, scoring, times) — commented
 ├─ style.css             phone frame on desktop, DOM buttons, selector, "rotate the phone" overlay
 ├─ core/
-│  ├─ loop.js            fixed 1/60 timestep with accumulator + interpolation; rendering capped at 60 FPS
+│  ├─ loop.js            fixed 1/60 timestep with accumulator + interpolation; FPS cap = draw every N-th screen refresh
+│  │                     (N integer, regular cadence: 60 Hz→60, 90→90, 120→60, 144→72); `stats.hz`/`stats.every` in the debug HUD
+│  ├─ emitter.js         minimal event channel (on/off/emit), base class of Game
+│  ├─ ease.js            the shared easing curves (easeInOut for the intro, easeOut for the slingshot)
 │  ├─ camera.js          side camera: fixed bottom edge, viewW = visible width, smoothed follow, pan, clamp
 │  ├─ input.js           unified Pointer Events → logical coordinates 1280×600
 │  └─ fullscreen.js      Fullscreen API on the first tap (retries until it succeeds), iOS hint (Add to Home Screen)
 ├─ physics/
 │  ├─ world.js           Planck wrapper: ground, prev-state map for interpolation, events:
-│  │                     pre-solve (computes contact.approachSpeed), post-solve (onImpulse with speed), begin-contact
+│  │                     pre-solve (computes contact.approachSpeed), post-solve (onImpulse with speed), begin-contact;
+│  │                     `pw.wm` = one WorldManifold reused by every contact callback (no allocation per contact)
 │  ├─ fracture.js        pre-fracture (ice: angled crosscuts; snow: rough lumps; long pieces: crosswise),
 │  │                     createIceBody (ice/snow/glass material), compound snow, snowballs,
 │  │                     Fracture class: impulse queue → shatter/crumble/splitSnowman after the step, debris that disappears
-│  ├─ polygon.js         area, centroid, splitting a convex polygon by a line, sanitize, rect
+│  ├─ polygon.js         area, centroid, splitting a convex polygon by a line, sanitize, rect, ccw (sort CCW);
+│  │                     **`GAP`** (the only definition of the contact skin, imported by every builder)
 │  └─ trajectory.js      preview with the same integrator as the engine (matches the real flight)
 ├─ entities/
 │  ├─ gift.js            parcel (bullet = CCD), 3 variants
@@ -114,7 +119,14 @@ src/
 │  ├─ snowman.js         snowman = single body (3 circles + flat foot) that splits into balls
 │  └─ snowTree.js        tree: sinuous static trunk (follows the curve), curvy branches, crystals of 7 shapes on the branches (non-physical, checked by hand)
 ├─ game/
-│  ├─ game.js            the whole game: level construction, state machine, input, glass, deliveries, scoring, intro
+│  ├─ game.js            facade `Game extends Emitter`: game state + same public API as before (state, step, frame,
+│  │                     launch, reset, setLevel, endIntro, pointer*, score…); `step()` orders the phases after pw.step
+│  ├─ levelBuilder.js    buildLevel(pw, json) → forts, slabs, trees, hills, pines, reindeer, houses (order matters: seeded rng)
+│  ├─ contacts.js        contact callbacks (glass, chimney edge, reindeer, impulses → Fracture), queues, shatterGlass
+│  ├─ turn.js            turn states: launch, giftsResting, nextTurn, endLevel, flight/settle transitions
+│  ├─ gestures.js        pointerDown/Move/Up: carry from the sleigh, aim (frozen camera), pan; trajectory preview
+│  ├─ scoring.js         deliver, deliveries/lost parcels after the step, total score, end-of-level summary
+│  ├─ intro.js           opening camera move
 │  └─ levels/*.json + index.js
 └─ render/
    ├─ sceneDraw.js       orchestrator: builds the caches (per level + quality, per match) and draws the frame in order
@@ -142,12 +154,29 @@ docs/GDD.md              design + chronological history of the iterations with m
 ### Physics: key points
 - **Units**: metres, kg, s. Logical view 1280×600 (2.13:1); camera `viewW` = visible metres.
 - **Contact skin**: Planck keeps polygons apart by `2·polygonRadius − linearSlop` = 1.5 cm. **Every stacked piece must be created at that distance** (`GAP` constant in the builders), otherwise the stacks "jump". Structures are created **asleep** (`awake:false`).
-- **Do not modify the world inside contact callbacks**: breakages, glass, deliveries are queued and applied after `pw.step()` (see `Fracture.process`, `shatterGlass`, `pendingDeliveries`).
+- **Do not modify the world inside contact callbacks** (and do not emit events there: a listener could): breakages, glass, deliveries, reindeer events are queued and applied after `pw.step()` (see `Fracture.process`, `contacts.js`: `shatterGlass`, `pendingDeliveries`, `contactEvents`). Callbacks use the shared `pw.wm` WorldManifold: check `contact.getManifold().pointCount` first (with 0 points Planck returns it unfilled).
 - **Breakage**: `post-solve` → `onImpulse(body, impulse, other, approachSpeed)` → `Fracture.hit`. Threshold per material/level (`ICE`, `SNOW`, `SNOWMAN`, `FRACTURE` in config). Parcels multiply the impulse (`damage`: small 0.5, standard 1, big 1.6). **Nothing breaks below 0.6 m/s of approach speed** (without this, settling tall stacks broke the base). Snow that hits the ground/hill: threshold × 0.2.
 - **Budget**: max 130 dynamic bodies (breakages that would add bodies beyond that are skipped); at most `FRACTURE.maxPerStep` (6) breaks per physics step, the rest wait in the queue (no frame spikes in big collapses); small debris disappears (ice 3 s, snow 1.4 s, glass 1.8 s).
 - **Glass**: static bodies; in `pre-solve` the contact is disabled when it is to break (the parcel passes through, slowed to 85%); a **parcel always breaks it**, other objects only above 0.8 N·s.
 - **Deliveries**: centre of the parcel inside a convex zone of the house (behind a door/window, inside the chimney flue). The door zone reaches 0.55 m **in front** of the glass (a parcel arriving at the door, even rolling, gets in). **Touching the inner side/edge of the chimney** (within 7 cm) counts as a chimney delivery (checked in begin-contact and pre-solve).
 - **Tree**: crystals are not bodies; at every step the segment travelled by the parcel (prev→current) is tested against the crystals; each crystal hit falls like a leaf and slows the parcel: `v *= (1 − 0.02/mass)`.
+
+### Game events (for audio / direction, M5)
+`game.on(name, fn)` returns an unsubscribe function; `game.off(name, fn)`; listeners survive `reset()`/`setLevel()`. All emitted outside contact callbacks.
+
+| Event | Data |
+|---|---|
+| `stato` | `{stato, prima}` turn state change |
+| `tensione` | `{tipo}` start of aiming (parcel on the band) |
+| `annullato` | `{}` released with too little tension (no throw) |
+| `lancio` | `{tipo, x, y, vx, vy, velocita}` (m/s, max ~24) |
+| `rottura` | `{materiale: 'ice' / 'snow' / 'snowman', area (m²), x, y, pezzi, forza (N·s), daPacco}` |
+| `vetro` | `{apertura: 'door' / 'window', x, y, daPacco}` |
+| `consegna` | `{tipo: 'chimney' / 'window' / 'door', punti, casa (index), ripetizione (1 = first), x, y}` |
+| `renna` | `{renna, x, y, colpi, punti (−100), daPacco}` (queued in the callback, emitted after the step) |
+| `fine` | end-of-level summary (main.js saves the best score with it; the old `onEnd`/`onEvent` are gone) |
+
+`onLevels()` stays a plain callback (end panel "Livelli" button). No sound yet.
 
 ### Level JSON schema
 ```jsonc
@@ -217,7 +246,8 @@ docs/GDD.md              design + chronological history of the iterations with m
 - The filler blocks beside the outer arches settle by 4–7 cm when they wake up (harmless, but visible if you look closely).
 - The scenery isn't designed for the iPhone: the "rotate the phone" overlay and the hint for adding it to the Home Screen exist, but have never been tested on iOS.
 - The old `iceTower.js` and the "wall" fort type (without arches) are no longer used in the levels.
-- No automated tests: verification is done in the browser/phone with the `xmas.*` helpers.
+- Automated checks: only `npm test` (stability); the rest is verified with the `tools/sim` measurements and in the browser/phone with the `xmas.*` helpers.
+- Phone: the level name is now drawn below the DOM buttons using their measured height (`hudTop`); to confirm on the real S21.
 
 ## 9. Recommended next steps
 
@@ -231,4 +261,6 @@ docs/GDD.md              design + chronological history of the iterations with m
 
 - Branch `main`. `variante-albero` already merged (fast-forward). Commit messages in Italian, with a short descriptive title and bullet points; final attribution line `Co-Authored-By` as the harness asks.
 - Commit only when the user asks for it. Update [GDD.md](GDD.md) (chronological section with measurements) and this file after every significant change.
-- Comments and UI texts in Italian; all tunable constants go in `config.js` with a comment.
+- Comments and UI texts in Italian; all tunable constants go in `config.js` with a comment (house measures in `HOUSE`, re-exported by `house.js` for the renderer; snow powder in `SNOW.powder`; tap slop in `GESTURE`).
+- Stacked pieces: import `GAP` (and `ccw`) from `src/physics/polygon.js`, never redefine them.
+- Behaviour-preserving refactors: compare `node tools/sim/grid.mjs <level> --json`, `stab.mjs`, `sacr.mjs` before/after (seeded, must be identical).

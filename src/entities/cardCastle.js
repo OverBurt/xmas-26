@@ -1,11 +1,7 @@
-import { Settings } from 'planck';
 import { GROUND_Y } from '../config.js';
 import { createIceBody } from '../physics/fracture.js';
-import { rect } from '../physics/polygon.js';
+import { rect, centroid, GAP } from '../physics/polygon.js';
 import { ICE } from '../config.js';
-import { centroid } from '../physics/polygon.js';
-
-const GAP = 2 * Settings.polygonRadius - Settings.linearSlop;
 
 /**
  * "Castello di carte" (prova): piani di tende ad A di lastre di ghiaccio appoggiate l'una all'altra,

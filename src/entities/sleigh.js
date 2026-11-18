@@ -2,7 +2,7 @@ import { GIFTS } from '../config.js';
 
 const BED_Y = 0.75; // altezza del pianale (m)
 const BED_W = 3.4; // larghezza utile del pianale
-const GAP = 0.08;
+const SPACING = 0.08; // spazio tra i pacchi sul pianale (solo disposizione, non è il GAP della fisica)
 
 /**
  * Slitta con i pacchi ancora da lanciare. I pacchi qui non sono corpi fisici:
@@ -33,7 +33,7 @@ export class Sleigh {
       }
       g.x = cx + d.w / 2;
       g.y = rowY + d.h / 2;
-      cx += d.w + GAP;
+      cx += d.w + SPACING;
       rowH = Math.max(rowH, d.h);
     }
   }

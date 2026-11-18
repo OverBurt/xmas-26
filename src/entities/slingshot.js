@@ -1,4 +1,5 @@
 import { SLING } from '../config.js';
+import { easeOut } from '../core/ease.js';
 
 /**
  * Fionda: carico, presa, tensione (clampata) e velocità di lancio.
@@ -77,12 +78,12 @@ export class Slingshot {
   /** Posizione del pacco caricato (animazione di caricamento inclusa). */
   get loadX() {
     const a = this.loadAnim;
-    return a ? a.x + (this.x - a.x) * ease(a.t) : this.x + this.pullX;
+    return a ? a.x + (this.x - a.x) * easeOut(a.t) : this.x + this.pullX;
   }
   get loadY() {
     const a = this.loadAnim;
     // piccolo arco durante il caricamento
-    return a ? a.y + (this.y - a.y) * ease(a.t) + Math.sin(a.t * Math.PI) * 0.6 : this.y + this.pullY;
+    return a ? a.y + (this.y - a.y) * easeOut(a.t) + Math.sin(a.t * Math.PI) * 0.6 : this.y + this.pullY;
   }
 
   /** Tensione normalizzata 0..1. */
@@ -105,5 +106,3 @@ export class Slingshot {
     return shot;
   }
 }
-
-const ease = (t) => 1 - (1 - Math.min(t, 1)) ** 3;

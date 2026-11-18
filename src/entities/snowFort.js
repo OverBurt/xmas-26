@@ -1,12 +1,8 @@
-import { Settings } from 'planck';
 import { SNOW, GROUND_Y } from '../config.js';
 import { createIceBody, createSnowCompound } from '../physics/fracture.js';
 import { buildIceSculpture } from './iceSculpture.js';
 import { buildCardCastle } from './cardCastle.js';
-import { rect, centroid } from '../physics/polygon.js';
-
-/** Distanza a riposo tra due poligoni: i mattoni nascono già appoggiati (vedi CLAUDE.md, regole di fisica). */
-const GAP = 2 * Settings.polygonRadius - Settings.linearSlop;
+import { rect, centroid, ccw, GAP } from '../physics/polygon.js';
 
 /**
  * Fortino di neve ad arcate costruito dai bambini (vedi buildArcade); con `storeys` > 1 è una torre.
@@ -198,11 +194,4 @@ function compound(pw, polys, dens = 1) {
 function polyBody(pw, world, dens = 1) {
   const c = centroid(world);
   return createIceBody(pw, world.map((p) => ({ x: p.x - c.x, y: p.y - c.y })), c.x, c.y, 0, 0, false, 'snow', dens);
-}
-
-/** Ordina i vertici di un poligono convesso in senso antiorario. */
-function ccw(poly) {
-  const cx = poly.reduce((s, p) => s + p.x, 0) / poly.length;
-  const cy = poly.reduce((s, p) => s + p.y, 0) / poly.length;
-  return [...poly].sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
 }

@@ -1,6 +1,6 @@
-import { Polygon, Vec2, Settings } from 'planck';
-import { GROUND_Y } from '../config.js';
-import { centroid } from '../physics/polygon.js';
+import { Polygon, Vec2 } from 'planck';
+import { GROUND_Y, HOUSE } from '../config.js';
+import { centroid, GAP } from '../physics/polygon.js';
 import { createIceBody } from '../physics/fracture.js';
 
 /**
@@ -24,13 +24,13 @@ import { createIceBody } from '../physics/fracture.js';
  *  chimney.pos: posizione lungo la falda sinistra (0 = gronda, 1 = colmo)
  *  chimney.bottom/top: larghezza interna alla base e in cima; tilt: gradi verso sinistra
  */
-export const WALL = 0.28;
-export const EAVE = 0.35;
-export const CHIMNEY_WALL = 0.14;
-const ZONE_DEPTH = 0.6;
-const DOOR_REACH = 0.55; // la zona della porta sporge davanti al vetro: metà del pacco grande (0.4) + vetro + margine
-export const PANE = 0.045; // mezzo spessore del vetro
-const SKIN = 2 * Settings.polygonRadius - Settings.linearSlop; // distanza a riposo tra poligoni
+// Misure in config.js (HOUSE); esportate anche per il disegno (src/render/houseDraw.js, hudDraw.js).
+export const WALL = HOUSE.wall;
+export const EAVE = HOUSE.eave;
+export const CHIMNEY_WALL = HOUSE.chimneyWall;
+export const PANE = HOUSE.pane; // mezzo spessore del vetro
+const ZONE_DEPTH = HOUSE.zoneDepth;
+const DOOR_REACH = HOUSE.doorReach;
 
 /** Neve che tappa un'apertura: dorme finché non viene colpita, i suoi pezzi si sciolgono presto. */
 function snowPlug(pw, poly, x, y, angle) {
@@ -144,7 +144,7 @@ export function buildHouse(pw, def) {
         { x: -hw * 0.5, y: 0.2 },
         { x: -hw * 0.9, y: 0.08 },
       ];
-      const c = T(0, H + 0.16 + SKIN);
+      const c = T(0, H + 0.16 + GAP);
       plugs.push(snowPlug(pw, lid, c.x, c.y, a));
     }
   }
@@ -152,10 +152,10 @@ export function buildHouse(pw, def) {
   // Cumulo di neve contro la porta (spinto dal vento): copre il vetro finché non viene sfondato
   if (def.doorDrift && door) {
     const dh = Math.min(door.h * 0.75, 1.35);
-    const right = (yy) => xl(yy) + WALL / 2 - PANE - SKIN;
+    const right = (yy) => xl(yy) + WALL / 2 - PANE - GAP;
     const world = [P(x - 1.6, 0), P(right(0), 0), P(right(dh), dh), P(x - 0.45, dh)];
     const c = centroid(world);
-    plugs.push(snowPlug(pw, world.map((p) => ({ x: p.x - c.x, y: p.y - c.y })), c.x, c.y + SKIN, 0));
+    plugs.push(snowPlug(pw, world.map((p) => ({ x: p.x - c.x, y: p.y - c.y })), c.x, c.y + GAP, 0));
   }
 
   body.setUserData({ kind: 'house' });

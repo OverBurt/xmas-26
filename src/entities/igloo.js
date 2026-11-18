@@ -1,9 +1,6 @@
-import { Settings } from 'planck';
 import { SNOW, GROUND_Y } from '../config.js';
 import { createIceBody } from '../physics/fracture.js';
-import { centroid } from '../physics/polygon.js';
-
-const GAP = 2 * Settings.polygonRadius - Settings.linearSlop;
+import { centroid, ccw, GAP } from '../physics/polygon.js';
 
 /**
  * Igloo visto di lato: una cupola di blocchi di neve a cuneo che poggia sul terreno, vuota dentro.
@@ -33,10 +30,4 @@ export function buildIgloo(pw, def) {
   // faccia superiore del concio in chiave (corda esterna)
   const top = base + ro * Math.cos(Math.PI / (2 * N));
   return { bodies, top, cx };
-}
-
-function ccw(poly) {
-  const mx = poly.reduce((s, p) => s + p.x, 0) / poly.length;
-  const my = poly.reduce((s, p) => s + p.y, 0) / poly.length;
-  return [...poly].sort((a, b) => Math.atan2(a.y - my, a.x - mx) - Math.atan2(b.y - my, b.x - mx));
 }

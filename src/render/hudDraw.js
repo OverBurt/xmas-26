@@ -105,13 +105,16 @@ export function drawWorldLabels(ctx, game) {
     }
   }
   for (const f of game.floaters) {
-    const a = f.t < 1.2 ? 1 : 1 - (f.t - 1.2) / 0.6;
+    const a = f.t < SCORE.floaterLife - 0.6 ? 1 : 1 - (f.t - SCORE.floaterLife + 0.6) / 0.6; // svanisce nell'ultimo 0.6 s
     testo(ctx, f.text, X(f.x), Y(f.y), f.big ? 40 : 30, { alfa: Math.max(0, a), col: f.bad ? '#ff8a8a' : C.oro }); // punti tolti in rosso
   }
 }
 
-/** HUD: pacchi rimasti e punti in alto a sinistra, suggerimento del momento sotto, nome del livello a destra. */
-export function drawHud(ctx, game) {
+/**
+ * HUD: pacchi rimasti e punti in alto a sinistra, suggerimento del momento sotto, nome del livello a destra.
+ * @param {number} [top] bordo inferiore dei pulsanti DOM in alto a destra (px logici): il nome va sotto
+ */
+export function drawHud(ctx, game, top = 0) {
   const tipi = game.sleigh.gifts.map((g) => g.type);
   if (game.sling.loaded) tipi.push(game.sling.loaded.type);
   if (game.carry) tipi.push(game.carry.gift.type);
@@ -146,7 +149,8 @@ export function drawHud(ctx, game) {
   ctx.globalAlpha = 0.72;
   ctx.textAlign = 'right';
   ctx.font = `500 14px ${FONT}`;
-  ctx.fillText(game.level.name, VIEW_W - 16, 76); // sotto i pulsanti
+  // sotto i pulsanti: su desktop a 76, sul telefono (pulsanti più grandi nella vista logica) più in basso
+  ctx.fillText(game.level.name, VIEW_W - 16, Math.max(76, top + 16));
   ctx.globalAlpha = 1;
 
   let hint = '';

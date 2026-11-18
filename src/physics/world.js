@@ -1,4 +1,4 @@
-import { World, Edge, Vec2 } from 'planck';
+import { World, Edge, Vec2, WorldManifold } from 'planck';
 import {
   GRAVITY,
   GROUND_Y,
@@ -14,6 +14,13 @@ import {
 export class PhysicsWorld {
   constructor() {
     this.world = new World({ gravity: new Vec2(0, GRAVITY) });
+    /**
+     * WorldManifold riusato da tutte le callback di contatto (contact.getWorldManifold(pw.wm)) invece di
+     * allocarne uno nuovo a ogni contatto. Valido solo fino alla prossima chiamata: non conservarne i punti.
+     * Attenzione: con 0 punti di contatto Planck lo restituisce senza riempirlo → controllare prima
+     * contact.getManifold().pointCount.
+     */
+    this.wm = new WorldManifold();
     /** @type {Map<import('planck').Body, {x:number,y:number,a:number}>} */
     this.prev = new Map();
     /** Callback (body, impulse, otherBody, approachSpeed) per ogni contatto risolto. */
@@ -24,7 +31,7 @@ export class PhysicsWorld {
     // Prima della risoluzione si misura la velocità d'avvicinamento dei due corpi nel punto di contatto:
     // serve a distinguere un urto vero da un corpo che semplicemente poggia su un altro.
     this.world.on('pre-solve', (contact) => {
-      contact.approachSpeed = approachSpeed(contact);
+      contact.approachSpeed = approachSpeed(contact, this.wm);
       this.onPreSolve?.(contact);
     });
     /** Callback (contact) quando due corpi iniziano a toccarsi. */
@@ -87,19 +94,30 @@ export class PhysicsWorld {
   }
 }
 
-/** Velocità relativa (m/s) con cui i due corpi si vengono incontro lungo la normale del contatto. */
-function approachSpeed(contact) {
-  const wm = contact.getWorldManifold(null);
+/**
+ * Velocità relativa (m/s) con cui i due corpi si vengono incontro lungo la normale del contatto.
+ * Senza allocazioni: `wm` è il manifold riusato e la velocità di un punto (v + ω × r, come
+ * Body.getLinearVelocityFromWorldPoint, stesse operazioni) è calcolata a mano.
+ */
+function approachSpeed(contact, wm) {
   const n = contact.getManifold().pointCount;
-  if (!wm || !n) return 0;
+  if (!n || !contact.getWorldManifold(wm)) return 0;
   const A = contact.getFixtureA().getBody();
   const B = contact.getFixtureB().getBody();
+  const la = A.getLinearVelocity();
+  const lb = B.getLinearVelocity();
+  const ca = A.getWorldCenter();
+  const cb = B.getWorldCenter();
+  const wa = A.getAngularVelocity();
+  const wb = B.getAngularVelocity();
   let best = 0;
   for (let i = 0; i < n; i++) {
     const p = wm.points[i];
-    const va = A.getLinearVelocityFromWorldPoint(p);
-    const vb = B.getLinearVelocityFromWorldPoint(p);
-    const vn = (vb.x - va.x) * wm.normal.x + (vb.y - va.y) * wm.normal.y;
+    const vax = la.x + -wa * (p.y - ca.y);
+    const vay = la.y + wa * (p.x - ca.x);
+    const vbx = lb.x + -wb * (p.y - cb.y);
+    const vby = lb.y + wb * (p.x - cb.x);
+    const vn = (vbx - vax) * wm.normal.x + (vby - vay) * wm.normal.y;
     best = Math.max(best, Math.abs(vn));
   }
   return best;

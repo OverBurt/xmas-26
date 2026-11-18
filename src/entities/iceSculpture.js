@@ -1,11 +1,7 @@
-import { Settings } from 'planck';
 import { ICE } from '../config.js';
 import { createIceBody } from '../physics/fracture.js';
-import { centroid } from '../physics/polygon.js';
+import { centroid, ccw, GAP } from '../physics/polygon.js';
 import { buildCrystalCluster } from './iceCrystal.js';
-
-/** Distanza a riposo tra due poligoni: i pezzi nascono già appoggiati. */
-const GAP = 2 * Settings.polygonRadius - Settings.linearSlop;
 
 /**
  * Sculture di ghiaccio da mettere in cima ai fortini: forme geometriche fatte di lastre inclinate,
@@ -137,10 +133,4 @@ function triPrism(pw, cx, y, w, h) {
     { x: cx + w / 2, y: yb },
     { x: cx, y: yb + h },
   ]);
-}
-
-function ccw(poly) {
-  const mx = poly.reduce((s, p) => s + p.x, 0) / poly.length;
-  const my = poly.reduce((s, p) => s + p.y, 0) / poly.length;
-  return [...poly].sort((a, b) => Math.atan2(a.y - my, a.x - mx) - Math.atan2(b.y - my, b.x - mx));
 }

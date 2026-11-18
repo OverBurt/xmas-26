@@ -52,7 +52,7 @@ function costruisciFisso(game) {
 
 /**
  * @param {CanvasRenderingContext2D} ctx contesto già scalato alle coordinate logiche 1280×600
- * @param {object} [o] { debug: griglia metrica (solo con ?debug) }
+ * @param {object} [o] { debug: griglia metrica (solo con ?debug), hudTop: bordo inferiore dei pulsanti DOM (px logici) }
  */
 export function drawScene(ctx, game, alpha, o = {}) {
   const { camera, pw, sling, sleigh } = game;
@@ -124,7 +124,7 @@ export function drawScene(ctx, game, alpha, o = {}) {
 
   if (on('testi')) {
     drawWorldLabels(ctx, game);
-    drawHud(ctx, game);
+    drawHud(ctx, game, o.hudTop);
   }
   if (game.state === 'intro' && game.intro) drawIntroTitle(ctx, game);
   if (game.state === 'end' && game.summary) drawSummary(ctx, game);

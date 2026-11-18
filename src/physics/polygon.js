@@ -1,4 +1,19 @@
 // Geometria dei poligoni convessi (array di {x, y} in senso antiorario).
+import { Settings } from 'planck';
+
+/**
+ * Distanza a riposo tra due poligoni a contatto: Planck li tiene separati di 2·polygonRadius − linearSlop (1.5 cm).
+ * Ogni pezzo impilato va creato a questa distanza da quello sotto, altrimenti la pila "salta" al primo step.
+ * Unica definizione, usata da tutti i costruttori (fortini, sculture, igloo, case, pupazzi…).
+ */
+export const GAP = 2 * Settings.polygonRadius - Settings.linearSlop;
+
+/** Riordina i vertici di un poligono convesso in senso antiorario (attorno alla media dei vertici). */
+export function ccw(poly) {
+  const mx = poly.reduce((s, p) => s + p.x, 0) / poly.length;
+  const my = poly.reduce((s, p) => s + p.y, 0) / poly.length;
+  return [...poly].sort((a, b) => Math.atan2(a.y - my, a.x - mx) - Math.atan2(b.y - my, b.x - mx));
+}
 
 export function area(poly) {
   let a = 0;

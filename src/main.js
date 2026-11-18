@@ -17,7 +17,10 @@ const frame = document.getElementById('frame');
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
 const hud = document.getElementById('hud');
+const controls = document.getElementById('controls');
 let pixelScale = 1;
+/** Bordo inferiore dei pulsanti DOM in px logici: il nome del livello sul canvas va disegnato sotto. */
+let controlsBottom = 0;
 
 function resize() {
   const vw = window.innerWidth;
@@ -33,6 +36,9 @@ function resize() {
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
   pixelScale = canvas.width / VIEW_W;
+  // Su un telefono 1 px CSS vale ~1.6 px logici: i pulsanti occupano più spazio nella vista logica
+  const fr = frame.getBoundingClientRect();
+  controlsBottom = (controls.getBoundingClientRect().bottom - fr.top) / s;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -55,12 +61,12 @@ const params = new URLSearchParams(location.search);
 const game = new Game(findLevel(params.get('level') || store.get('xmas-level', null)));
 
 // Miglior punteggio per livello (solo su questo dispositivo)
-game.onEnd = (s) => {
+game.on('fine', (s) => {
   const best = store.get('xmas-best', {});
   const prev = best[game.level.id];
   if (!prev || s.score > prev.score) best[game.level.id] = { score: s.score, stars: s.stars };
   store.set('xmas-best', best);
-};
+});
 
 const levelsEl = document.getElementById('levels');
 function openLevels() {
@@ -130,7 +136,7 @@ function stress() {
   }
 }
 
-document.getElementById('controls').addEventListener('click', (e) => {
+controls.addEventListener('click', (e) => {
   const action = e.target.dataset?.action;
   if (action === 'reset') game.reset();
   if (action === 'levels') openLevels();
@@ -162,7 +168,7 @@ startLoop({
     game.frame(elapsed);
     ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
     const t0 = performance.now();
-    drawScene(ctx, game, alpha, { debug: DEBUG });
+    drawScene(ctx, game, alpha, { debug: DEBUG, hudTop: controlsBottom });
     const ms = performance.now() - t0;
     perf.frames++;
     perf.renderMs += ms;
@@ -174,7 +180,7 @@ startLoop({
     if (!DEBUG || (hudTimer += 1) % 15 !== 0) return;
     const c = game.pw.counts();
     hud.textContent =
-      `FPS ${stats.fps} · fisica ${stats.physicsMs.toFixed(2)} ms · disegno ${(perf.renderMs / Math.max(1, perf.frames)).toFixed(2)} ms (max ${perf.worstMs.toFixed(1)}) · ${quality.nome} · canvas ${canvas.width}×${canvas.height}\n` +
+      `FPS ${stats.fps} (${stats.hz} Hz ÷${stats.every}) · fisica ${stats.physicsMs.toFixed(2)} ms · disegno ${(perf.renderMs / Math.max(1, perf.frames)).toFixed(2)} ms (max ${perf.worstMs.toFixed(1)}) · ${quality.nome} · canvas ${canvas.width}×${canvas.height}\n` +
       `corpi ${c.dynamic} · svegli ${c.awake} · stato ${game.state} · lanci ${game.stats.shots}\n` +
       `impulso max ultimo lancio ${game.stats.maxImpulse.toFixed(2)}`;
   },
