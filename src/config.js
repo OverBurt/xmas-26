@@ -285,16 +285,16 @@ export const GFX = {
    * (aguzza, altopiano, asimmetrica, doppia, tonda; `roccia` solo a mano).
    * Le medie, più vicine, sono più basse e più tonde delle lontane.
    */
-  montiForma: [{ scala: 0.62, valle: 165, alzaVette: { 2: 120 }, togliVette: [3], varieta: true, vette: [{ x: 1005, h: 400, w: 190, forma: 'roccia' }] }, { scala: 0.55, valle: 165, tondo: 0.7, sposta: -140, vette: [{ x: 130, h: 330, w: 300 }], spostaVette: { 2: 120 } }],
+  montiForma: [{ scala: 0.62, valle: 165, alzaVette: { 2: 120 }, togliVette: [3], varieta: true, vette: [{ x: 1125, h: 400, w: 190, forma: 'roccia' }] }, { scala: 0.55, valle: 165, tondo: 0.7, sposta: -140, vette: [{ x: 130, h: 330, w: 300 }], spostaVette: { 2: 120 } }],
   stars: 150, // stelle fisse dipinte nel cielo
   atlas: { size: 2048, maxSprite: 512, pad: 2 }, // atlante degli sprite piccoli (px): una sola immagine per la scheda video
-  moon: { x: 905, y: 110, r: 44 }, // luna (px logici del cielo): disegnata nel cielo, dietro tutti i piani delle montagne
+  moon: { x: 1000, y: 110, r: 44 }, // luna (px logici del cielo): disegnata nel cielo, dietro tutti i piani delle montagne
   pannello: { x1: 920, y0: 16, y1: 516, margine: 8 }, // ingombro del pannello di fine livello (px logici, neve compresa) e distanza minima dai pulsanti in alto e dal bordo in basso
   /**
    * Pagina di avvio (px logici): centro del blocco del titolo, riga del titolo e del sottotitolo, centro e misure del
    * pulsante PLAY (che il gufo guarda). Il blocco sta a sinistra della luna, sopra la slitta e la fionda.
    */
-  titolo: { x: 540, y: 196, play: { x: 540, y: 392, w: 250, h: 88 } },
+  titolo: { x: 482, y: 122, play: { x: 482, y: 322, w: 250, h: 88 } },
   panelSnowPpm: 60, // scala (px per metro) del cappello di neve sul pannello di fine livello: neve grande come sui tetti
   piniAlone: 18, // sfumatura (px) dell'alone scuro attorno ai pini dietro la scena
   piniSchiarita: 0.1, // pini dietro la scena: quanto schiariscono verso la base (0 = tono pieno); bassa = sagome scure che si staccano dalle montagne

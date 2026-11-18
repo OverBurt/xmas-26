@@ -5,7 +5,7 @@
 //   si usa la copia in cache;
 // - gli altri file (hanno il nome con l'impronta del contenuto) si servono dalla cache e si aggiornano in sottofondo.
 // Cambiare VERSIONE butta via le cache vecchie.
-const VERSIONE = 'xmas26-v6';
+const VERSIONE = 'xmas26-v7';
 const BASE = self.registration.scope;
 
 self.addEventListener('install', (e) => {

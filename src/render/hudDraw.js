@@ -1,7 +1,7 @@
 import { VIEW_W, VIEW_H, GFX, GIFTS, SCORE, INTRO } from '../config.js';
 import { WALL, isPlugged } from '../entities/house.js';
 import { centroid } from '../physics/polygon.js';
-import { X, Y, TAU, stella5, V, setView, HUD, panelFit } from './view.js';
+import { X, Y, TAU, stella5, V, setView, HUD, UI, panelFit } from './view.js';
 import { cappello } from './snow.js';
 import { daCache } from './textCache.js';
 import { drawGiftIcon } from './propsDraw.js';
@@ -236,10 +236,12 @@ export function drawHud(ctx, game, top = 0) {
     daCache(ctx, `hud|${tipi.join(',')}|${punti}`, 0, 0, 460, 62, 0, 0, (c) => hudPacchiPunti(c, tipi, punti));
     ctx.restore();
   }
-  const yn = Math.max(76, top + 8 + 10 * k); // sotto i pulsanti
+  // nome del livello (solo su computer): sulla riga dei pulsanti, alla loro sinistra; sotto coprirebbe la luna
+  const yn = Math.max(24, top / 2 + 5);
+  const xn = Math.min(VIEW_W - 16, UI.left - 14);
   if (k <= GFX.hudNomeMax && game.state !== 'intro') { // durante la regia il nome è già grande in alto al centro; // sui telefoni (HUD ingrandito) il nome del livello non si mostra: toglie spazio alla scena
   ctx.save();
-  ctx.translate(VIEW_W - 16, yn);
+  ctx.translate(xn, yn);
   ctx.scale(k, k);
   daCache(ctx, `nome|${game.level.name}`, 0, 0, 620, 24, 620, 12, (c) => {
     c.globalAlpha = 0.72;
@@ -342,8 +344,8 @@ export function drawTitle(ctx, game, o = {}) {
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   // filo di lucine appeso sopra il titolo
   const col = ['#ff6f61', '#ffd36b', '#5fe0b8', '#8fc8ff'];
-  const x0 = T.x - 340;
-  const lf = 590; // lunghezza del filo: si ferma prima della luna
+  const lf = 640; // lunghezza del filo, centrato sul titolo (finisce prima della luna)
+  const x0 = T.x - lf / 2;
   const filo = (u) => T.y - 92 + 26 * 4 * u * (1 - u);
   ctx.strokeStyle = 'rgba(20,16,60,0.9)';
   ctx.lineWidth = 2;
@@ -426,7 +428,7 @@ export function drawTitle(ctx, game, o = {}) {
   ctx.fill();
   testo(ctx, 'PLAY', 28, 2, 44, { col: '#fff', bordo: false, peso: 800 });
   ctx.restore();
-  if (o.stelle?.n) testo(ctx, `★ ${o.stelle.n} su ${o.stelle.max}`, T.x, T.play.y + 78, 20, { col: C.oro, bordo: 'rgba(12,14,52,0.7)', peso: 700 });
+  if (o.stelle?.n) testo(ctx, `★ ${o.stelle.n} su ${o.stelle.max}`, T.play.x, T.play.y + 78, 20, { col: C.oro, bordo: 'rgba(12,14,52,0.7)', peso: 700 });
 }
 
 /** Nome del livello al centro mentre la camera mostra le case (dissolvenza in entrata e uscita). */

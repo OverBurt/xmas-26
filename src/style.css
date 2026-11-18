@@ -60,7 +60,7 @@ canvas#game {
   gap: 6px;
   transition: opacity 0.2s;
 }
-/* Durante la mira e il lancio (e sulla pagina di avvio i pulsanti di gioco) i pulsanti spariscono: classe messa da main.js */
+/* Durante la mira e il lancio i pulsanti spariscono: classe messa da main.js */
 #controls.via { opacity: 0; pointer-events: none; }
 #controls button[hidden] { display: none; }
 /* Durante il livello (classe .gioco, da main.js) i pulsanti sono raccolti dietro il pulsante coi tre pallini:
@@ -100,8 +100,9 @@ canvas#game {
 @media (prefers-reduced-motion: reduce) {
   #controls.gioco.aperto > button:not(#menu-btn) { animation: none; }
 }
-#frame.titolo #controls [data-action] { display: none; }
-/* sulla pagina di avvio i pulsanti rimasti stanno in basso a destra: in alto coprirebbero la luna col gufo */
+/* Sulla pagina di avvio i pulsanti sono tutti in vista (manca solo Ricomincia, che lì non serve) e stanno in basso
+   a destra: in alto coprirebbero la luna col gufo */
+#frame.titolo #controls [data-action='reset'] { display: none; }
 #frame.titolo #controls { top: auto; bottom: 10px; }
 #frame.titolo #audio-pannello { top: auto; bottom: 58px; }
 
