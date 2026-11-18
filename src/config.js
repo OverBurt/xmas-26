@@ -224,11 +224,12 @@ export const SCORE = {
 
 /** Regia d'apertura del livello: un unico movimento continuo case → panoramica → lancio. */
 export const INTRO = {
-  attesa: 1, // s fermi sulle case col nome del livello, prima che la camera si muova
+  // Ordine: compare il nome del livello, resta `attesa` secondi, sfuma in `titoloSfuma`, e solo dopo la camera si muove.
+  attesa: 2, // s fermi sulle case col nome del livello in vista
+  titoloSfuma: 0.8, // s di dissolvenza del nome; il movimento parte quando è sparito
   duration: 6.2, // secondi del movimento: circa 2 di allontanamento lentissimo dalle case, poi accelera e rallenta arrivando sulla fionda
   partenza: 1.4, // quanto è lenta la partenza: esponente applicato al tempo prima della curva (1 = accelera subito; con 1.4 nei primi 2 s si fa il 3% del percorso)
-  titolo: 3.8, // s dall'inizio del movimento: il nome del livello resta al centro fino a qui...
-  titoloSfuma: 0.9, // ...sfumando negli ultimi secondi
+  titoloY: 66, // px logici dall'alto del nome del livello (il sottotitolo sta 48 px sotto): nel cielo, sopra i tetti
 };
 
 /** Tempi del turno (s). */

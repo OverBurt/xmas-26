@@ -37,7 +37,7 @@ export function startIntro(g) {
 export function updateIntro(g, dt) {
   const it = g.intro;
   it.t += dt;
-  const tm = it.t - INTRO.attesa; // prima si resta fermi sulle case col nome del livello
+  const tm = it.t - INTRO.attesa - INTRO.titoloSfuma; // prima il nome del livello resta e poi sfuma, a camera ferma
   if (tm <= 0) return;
   if (tm >= it.duration) {
     endIntro(g);

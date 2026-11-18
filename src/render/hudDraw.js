@@ -227,12 +227,17 @@ export function drawHud(ctx, game, top = 0) {
   // Tre pezzi dalla cache (textCache.js): si ridisegnano solo quando cambia il contenuto.
   // Sui telefoni tutto è ingrandito di HUD.k: i due pezzi a sinistra attorno all'angolo, il nome attorno al suo bordo destro.
   const k = HUD.k;
-  ctx.save();
-  ctx.scale(k, k);
-  daCache(ctx, `hud|${tipi.join(',')}|${punti}`, 0, 0, 460, 62, 0, 0, (c) => hudPacchiPunti(c, tipi, punti));
-  ctx.restore();
+  // durante la regia d'apertura pacchi e punti non si mostrano: in alto al centro c'è il nome del livello, che sui
+  // telefoni (HUD ingrandito) arriverebbe a toccarli; resta solo "Tocca per saltare", al loro posto
+  const regia = game.state === 'intro';
+  if (!regia) {
+    ctx.save();
+    ctx.scale(k, k);
+    daCache(ctx, `hud|${tipi.join(',')}|${punti}`, 0, 0, 460, 62, 0, 0, (c) => hudPacchiPunti(c, tipi, punti));
+    ctx.restore();
+  }
   const yn = Math.max(76, top + 8 + 10 * k); // sotto i pulsanti
-  if (k <= GFX.hudNomeMax) { // sui telefoni (HUD ingrandito) il nome del livello non si mostra: toglie spazio alla scena
+  if (k <= GFX.hudNomeMax && game.state !== 'intro') { // durante la regia il nome è già grande in alto al centro; // sui telefoni (HUD ingrandito) il nome del livello non si mostra: toglie spazio alla scena
   ctx.save();
   ctx.translate(VIEW_W - 16, yn);
   ctx.scale(k, k);
@@ -255,7 +260,7 @@ export function drawHud(ctx, game, top = 0) {
   if (hint) {
     ctx.save();
     ctx.scale(k, k);
-    daCache(ctx, `hint|${hint}`, 0, 62, 460, 40, 0, 0, (c) => {
+    daCache(ctx, `hint|${hint}`, 0, regia ? 12 : 62, 460, 40, 0, 0, (c) => {
       c.font = `600 15px ${FONT}`;
       const w = c.measureText(hint).width + 36;
       pillola(c, 16, 4, w, 32);
@@ -427,11 +432,12 @@ export function drawTitle(ctx, game, o = {}) {
 /** Nome del livello al centro mentre la camera mostra le case (dissolvenza in entrata e uscita). */
 export function drawIntroTitle(ctx, game) {
   const t = game.intro.t;
-  const a = Math.min(1, t / 0.3) * Math.min(1, Math.max(0, (INTRO.attesa + INTRO.titolo - t) / INTRO.titoloSfuma)); // sparisce mentre la camera si allarga
+  const a = Math.min(1, t / 0.3) * Math.min(1, Math.max(0, (INTRO.attesa + INTRO.titoloSfuma - t) / INTRO.titoloSfuma)); // resta `attesa` secondi, poi sfuma; la camera parte dopo
   if (a <= 0) return;
   const [title, sub] = game.level.name.split(' · ');
-  testo(ctx, title, VIEW_W / 2, VIEW_H * 0.3, 56, { col: '#fff', bordo: 'rgba(12,14,52,0.75)', alfa: a });
-  if (sub) testo(ctx, sub, VIEW_W / 2, VIEW_H * 0.3 + 50, 24, { col: 'rgba(255,255,255,0.85)', peso: 500, bordo: false, alfa: a });
+  // in alto, sul cielo scuro: non sopra le case che la camera sta mostrando
+  testo(ctx, title, VIEW_W / 2, INTRO.titoloY, 56, { col: '#fff', bordo: 'rgba(12,14,52,0.75)', alfa: a });
+  if (sub) testo(ctx, sub, VIEW_W / 2, INTRO.titoloY + 48, 24, { col: 'rgba(255,255,255,0.85)', peso: 500, bordo: false, alfa: a });
 }
 
 /** Generatore pseudo-casuale fisso per le decorazioni del pannello (stesse posizioni a ogni frame). */
