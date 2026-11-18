@@ -30,7 +30,7 @@ snow and ice that break realistically. A parcel is delivered (and scores points)
 | **M4 setting** (direction A "Notte di velluto": parallax backdrop, two house styles, snow caps, falling snow, HUD, quality tiers) | ✅ also on the S21 |
 | **M5 direction and UX**: audio (synthesized effects + pre-recorded music, separate music/effects volume and mute), "Buone Feste" end screen, plugged-opening labels, **"Avanti" button to the next level, total stars** | ✅ on the S21 too — **sounds never listened to by the agent: the user judges them** |
 | Three levels of increasing difficulty, calibrated (19/11) | ✅ |
-| **M6**: quality tiers ✅, idle frame halving + text cache ✅, **offline service worker + installable manifest ✅ (tested with `vite preview`, server stopped)**, HTTPS publishing ❌ (**pending: GitHub Pages, to be done by another agent**, see §9), iOS test ❌ (planned by the user) | partial |
+| **M6**: quality tiers ✅, idle frame halving + text cache ✅, **offline service worker + installable manifest ✅ (tested with `vite preview`, server stopped)**, HTTPS publishing ✅ (**GitHub Pages: https://overburt.github.io/xmas-26/**, automatic at every push on `main`, see §9), iOS test ❌ (planned by the user) | partial |
 
 ## 3. Running the project
 
@@ -274,7 +274,7 @@ Music (pre-recorded in `public/audio/musica.m4a`, AAC 48 kbps mono, 855 KB, 140.
 - **Audio never listened to by the agent** (no audio output in its browser): kazoo sling voice, recorded music, crystal tinkle, "Fiu!" of vanishing gifts, volumes. The user judges them; tune `AUDIO` / `effetti.js`.
 - **iOS never tested** (rotate overlay, Home Screen hint, audio unlock on first touch, AAC loop, service worker): planned by the user.
 - **Social previews need the public URL**: set `VITE_SITE_URL` in `.env` (with trailing slash) before building, otherwise `og:url`/`og:image` stay relative. App name shown to players: "Biglietto d'auguri - GAME" (project/repo stay Xmas-26).
-- **Not published yet**: no remote. Publishing on GitHub Pages is pending and assigned to another agent (see §9, step 1). The build is static (`dist/`, relative paths, `sw.js`); it needs HTTPS for the service worker and the install prompt.
+- **Published** on GitHub Pages (public repository `OverBurt/xmas-26`): every push on `main` rebuilds and republishes through `.github/workflows/pages.yml`.
 - Text uses system rounded fonts only (`GFX.font`); on devices without one it falls back to the system sans.
 - The drawing deliberately exceeds the physical polygons in a few places (roof snow, gift bows, snowman hats, enlarged tree crystals, ground snow mounds): see GDD.
 - Idle frame halving (`IDLE_DIV`): ambient animations (snow, stars, crystals in the wind) run at 30 FPS while the scene waits for the player; any gesture or movement brings back 60.
@@ -284,12 +284,10 @@ Music (pre-recorded in `public/audio/musica.m4a`, AAC 48 kbps mono, 855 KB, 140.
 
 ## 9. Recommended next steps
 
-1. **PENDING — publish on GitHub Pages** (decided by the user on 19/11; **another agent will do it**, nothing has been published and no remote exists yet). What that agent needs to know:
-   - The build is static: `npm run build` → `dist/` (relative paths thanks to `base: './'` in `vite.config.js`, so a project page under `/<repo>/` works; `sw.js`, `manifest.webmanifest`, `og.png`, `robots.txt`, `llms.txt`, `audio/musica.m4a` are copied from `public/`).
-   - **Before building, set the public address in `.env`** (not versioned: copy `.env.example` to `.env`): `VITE_SITE_URL=https://<user>.github.io/<repo>/` (with the trailing slash). It fills `canonical`, `og:url`, `og:image`, `twitter:image` and the JSON-LD in `index.html`; while it is empty the social previews are not guaranteed.
-   - Publish the content of `dist/` (GitHub Actions with the Pages artifact, or a `gh-pages` branch). `dist/` is in `.gitignore`.
-   - After publishing: check the social preview with a link debugger, the install as an app on Android (manifest + service worker need HTTPS), the offline start after the first visit, the "Condividi" button on the phone (Web Share API). When re-publishing a new build, bump `VERSIONE` in `public/sw.js` if stale cached files must be dropped at once.
-   - `robots.txt` has no `Sitemap` line and there is no sitemap: add one only if wanted.
+1. **Published on GitHub Pages** (19/11): https://overburt.github.io/xmas-26/ — public repository `OverBurt/xmas-26`, history cleaned of personal data (commits signed with OverBurt's GitHub noreply address).
+   - Workflow `.github/workflows/pages.yml`: at every push on `main` → `npm ci`, `npm run build` with `VITE_SITE_URL=https://overburt.github.io/xmas-26/` (set in the workflow; locally in `.env`, not versioned, template `.env.example`), upload of `dist/`, deploy. Can also be started by hand (workflow_dispatch).
+   - When publishing a build whose cached files must be dropped at once, bump `VERSIONE` in `public/sw.js`.
+   - Still to check by hand: social preview with a link debugger, install as an app on Android, offline start after the first visit, "Condividi" on the phone.
 2. **iOS test** (user, planned): layout, audio, offline.
 3. Listen to the audio on the phone and tune volumes.
 4. Optional: more levels; unlock levels by stars (today all are selectable).

@@ -6,6 +6,7 @@ superando fortini di neve, sculture di ghiaccio, igloo, pupazzi e alberi di cris
 - **Per chi riprende il progetto**: [docs/HANDOFF.md](docs/HANDOFF.md) (stato, architettura, regole, decisioni, prossimi passi).
 - Design e storia delle iterazioni con le misure: [docs/GDD.md](docs/GDD.md).
 - Prove su telefono Android: [tools/phone/README.md](tools/phone/README.md).
+- **Gioca online**: https://overburt.github.io/xmas-26/ (pubblicato da GitHub Actions a ogni push su `main`).
 
 ## Avvio
 

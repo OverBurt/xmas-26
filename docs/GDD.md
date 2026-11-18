@@ -455,6 +455,10 @@ Punti dalle difficoltà misurate (`sim:score`, neve compresa), stelle da partite
 - **In sospeso — pubblicazione su GitHub Pages**: decisa dall'utente il 19/11, la farà un altro agente. Istruzioni in HANDOFF §9 (indirizzo in `.env`, build, cosa verificare dopo).
 - **Pulizia**: tolti i sei vecchi livelli, aggiornati `CLAUDE.md` e HANDOFF (§2, §3, §8, §9).
 
+### Pubblicazione (19/11/2026)
+- Storia ripulita dai dati personali (autore e committer di tutti i commit = OverBurt con l'indirizzo noreply di GitHub), repository ricreato per eliminare le copie vecchie, poi reso **pubblico**.
+- **GitHub Pages**: https://overburt.github.io/xmas-26/, pubblicato da GitHub Actions (`.github/workflows/pages.yml`) a ogni push su `main`, con l'indirizzo pubblico per le anteprime impostato nel workflow.
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente
