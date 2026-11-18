@@ -10,6 +10,8 @@ export const VIEW_H = 600;
  * 60 Hz → 60 FPS, 90 Hz → 90, 120 Hz → 60, 144 Hz → 72, 240 Hz → 60.
  */
 export const MAX_FPS = 60;
+/** A scena ferma (in attesa del giocatore, niente in movimento) si disegna un frame ogni IDLE_DIV: meno batteria. */
+export const IDLE_DIV = 2;
 
 /** Camera. */
 export const CAMERA = {
@@ -225,7 +227,7 @@ export const INTRO = {
 
 /** Tempi del turno (s). */
 export const TURN = {
-  afterPause: 1, // s di attesa a scena ferma, dopo un lancio, prima di tornare all'inquadratura di mira
+  afterPause: 1, // s di attesa a scena ferma prima di tornare alla mira, solo se un pacco non consegnato deve svanire
   puffImplode: 0.22, // s: il pacco non consegnato si rimpicciolisce girando
   puffCloud: 0.75, // s: poi la nuvoletta si allarga e si dissolve
   maxFlight: 8, // dopo questo tempo il volo si considera concluso
@@ -282,7 +284,8 @@ export const GFX = {
   gufo: { alto: 40, sotto: 27, dx: -15 }, // gufo sul pino della luna (px dello schermo): altezza, punta del pino sotto il centro della luna e spostamento orizzontale dal centro
   labelFade: 0.25, // s di dissolvenza delle etichette dei punti quando parte il lancio (e al ritorno)
   terreno: { orlo: 0.15, fascia: 0.17 }, // ampiezza (m) dei cumuli sul bordo della neve e delle onde delle fasce più in basso (solo grafica)
-  renne: 'classica', // disegno delle renne: 'cartone' (animate a fotogrammi, reindeerCartoon.js) oppure 'classica' (reindeerDraw.js)
+  hudScaleRef: 0.9, // sotto questa scala (px dello schermo per px logico) HUD ed etichette si ingrandiscono in proporzione
+  hudScaleMax: 1.6, // ingrandimento massimo
   paeseMargine: 0.8, // m oltre la chioma più a destra degli alberi da cui iniziano le case del paese (nell'inquadratura di mira)
   /** Livelli di qualità: scelti da soli in base al tempo di frame, oppure con `?qualita=alta|media|bassa`. */
   tiers: {
@@ -339,8 +342,8 @@ export const AUDIO = {
   tempo: 116, // battiti al minuto della musica
   musicaDurata: 140.6897, // durata musicale (s) della registrazione public/audio/musica.m4a: il loop si ripete esattamente su questa
   musicaGuadagno: 1, // la registrazione è stata abbassata per non saturare: il gioco la riporta al volume originale
-  sfasamento: 0.035, // prova: ogni nota della musica anticipa o ritarda a caso fino a questi secondi (0 = a tempo esatto)
-  stonatura: 22, // prova: ogni nota della melodia cala o cresce a caso fino a questi cent (100 = un semitono; 0 = intonata)
+  sfasamento: 0.035, // ogni nota della musica anticipa o ritarda a caso fino a questi secondi (0 = a tempo esatto)
+  stonatura: 22, // ogni nota della melodia cala o cresce a caso fino a questi cent (100 = un semitono; 0 = intonata)
   maxVoices: 14, // voci di effetti suonabili insieme (oltre, i nuovi suoni deboli vengono scartati)
   /** Rotture raggruppate: al massimo `breakMax` suoni per materiale ogni `breakWindow` s; il resto si somma al volume. */
   breakWindow: 0.1,

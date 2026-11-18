@@ -7,12 +7,53 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Xmas-26" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/icon-180.png" />
-  <title>Xmas-26</title>
-  <link rel="stylesheet" href="/src/style.css" />
+  <meta name="apple-mobile-web-app-title" content="Biglietto d'auguri - GAME" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon-180.png" />
+  <title>Biglietto d'auguri - GAME · il gioco di Natale da mandare agli amici</title>
+  <!-- Descrizioni per motori di ricerca, assistenti AI e anteprime sui social. L'indirizzo pubblico si imposta
+       in .env (VITE_SITE_URL, con la barra finale): serve assoluto per og:url e og:image. -->
+  <meta name="description" content="Un biglietto d'auguri da giocare: con la fionda lanci i regali dentro le case del villaggio, tra fortini di neve, cristalli di ghiaccio e renne curiose. Tre livelli, gratis, nel browser del telefono o del computer." />
+  <meta name="keywords" content="biglietto d'auguri, Natale, gioco, fionda, regali, auguri di Buone Feste, gioco nel browser" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <link rel="canonical" href="%VITE_SITE_URL%" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="it_IT" />
+  <meta property="og:site_name" content="Biglietto d'auguri - GAME" />
+  <meta property="og:title" content="Biglietto d'auguri - GAME · Buone Feste!" />
+  <meta property="og:description" content="Un biglietto d'auguri da giocare: lancia i regali con la fionda dentro le case del villaggio innevato." />
+  <meta property="og:url" content="%VITE_SITE_URL%" />
+  <meta property="og:image" content="%VITE_SITE_URL%og.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Il villaggio innevato di notte: la slitta con i regali, la fionda, un fortino di neve con un pupazzo e le case illuminate." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Biglietto d'auguri - GAME · Buone Feste!" />
+  <meta name="twitter:description" content="Un biglietto d'auguri da giocare: lancia i regali con la fionda dentro le case del villaggio innevato." />
+  <meta name="twitter:image" content="%VITE_SITE_URL%og.png" />
+  <meta name="twitter:image:alt" content="Il villaggio innevato di notte con la slitta, la fionda e le case illuminate." />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": ["VideoGame", "WebApplication"],
+    "name": "Biglietto d'auguri - GAME",
+    "description": "Un biglietto d'auguri da giocare: con la fionda lanci i regali dentro le case del villaggio, tra fortini di neve, cristalli di ghiaccio e renne curiose. Tre livelli, gratis, nel browser del telefono o del computer.",
+    "url": "%VITE_SITE_URL%",
+    "image": "%VITE_SITE_URL%og.png",
+    "inLanguage": "it",
+    "genre": ["Rompicapo", "Fisica", "Natale"],
+    "gamePlatform": ["Browser web", "Android", "iOS"],
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Qualsiasi (browser moderno)",
+    "playMode": "SinglePlayer",
+    "numberOfPlayers": { "@type": "QuantitativeValue", "value": 1 },
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+  }
+  </script>
+  <link rel="stylesheet" href="./src/style.css" />
 </head>
 <body>
   <div id="frame">
@@ -24,6 +65,7 @@
       <button data-action="levels" title="Tasto L">Livelli</button>
       <button data-action="reset" title="Tasto R">Reset</button>
       <button id="muto-btn" class="icona" title="Audio (tasto M)" aria-label="Audio" aria-controls="audio-pannello" aria-expanded="false"></button>
+      <button id="share-btn" class="icona" title="Condividi con gli amici" aria-label="Condividi"></button>
       <button id="fs-btn" title="Schermo intero">⛶</button>
     </div>
     <div id="audio-pannello" hidden>
@@ -36,6 +78,7 @@
         <input type="range" min="0" max="100" step="1" aria-label="Volume degli effetti" />
       </div>
     </div>
+    <div id="avviso" role="status" hidden></div>
     <div id="levels" hidden>
       <div class="levels-panel">
         <h2>Scegli il livello</h2>
@@ -48,6 +91,6 @@
     Per giocare a schermo intero: tocca <b>Condividi</b> e poi <b>Aggiungi alla schermata Home</b>. <span>✕</span>
   </div>
   <div id="rotate">Ruota il telefono in orizzontale</div>
-  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>

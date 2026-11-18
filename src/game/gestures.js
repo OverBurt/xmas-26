@@ -20,6 +20,7 @@ export function pointerDown(g, p) {
     const b = g.buttons.find((b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
     if (b?.action === 'retry') g.reset();
     if (b?.action === 'levels') g.onLevels?.();
+    if (b?.action === 'next') g.onNext?.();
     return;
   }
   if (g.state === 'flight' || g.state === 'settle') {

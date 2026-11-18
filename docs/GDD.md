@@ -443,6 +443,18 @@ Punti dalle difficoltà misurate (`sim:score`, neve compresa), stelle da partite
 - S21 (Chrome, qualità alta, canvas 1536×720): i tre livelli partono e si giocano; durante un tiro di demolizione con il pacco grande FPS minimo 52–54 (lo schermo in quel momento andava a 73–79 Hz variabili; a 60 Hz il gioco tiene 60), fisica al massimo 1.8–3.9 ms per frame, disegno peggiore 4.4–5.7 ms. Audio e musica registrata attivi.
 - Pannello di fine livello: più aria tra la neve del bordo e "Buone Feste!" (il pannello parte più in alto, contenuti 36 px più giù).
 
+### Consumi, HUD sul telefono, progressione, offline, pulizia (19/11/2026)
+- **Pausa a fine lancio** solo se un pacco non consegnato deve svanire (dopo una consegna si torna subito alla mira).
+- **Renne da cartone tolte** dal codice (resta la renna di prima).
+- **Consumi (S21, scena ferma, `phone:consumi`)**: a scena ferma in attesa del giocatore si disegna un frame ogni due (`IDLE_DIV`, `Game.fermo`; la fisica resta a 60 Hz, al primo gesto o movimento si torna a 60 FPS) e i testi (etichette dei punti, HUD) vengono da una cache in un atlante (`render/textCache.js`). CPU di Chrome 184 → **118**% di un core (−36%): pagina 65 → 45, GPU 108 → 61. I testi ora costano ~1 (prima ~8). La qualità automatica riporta il tempo misurato al frame normale, così i 30 FPS voluti non la fanno scendere.
+- **HUD sul telefono**: sull'S21 un px logico vale 0.62 px dello schermo (etichette alte meno di 9 px). Ora HUD, etichette dei punti e dettaglio del riepilogo si ingrandiscono in proporzione sugli schermi piccoli (`HUD.k` = 0.9 / scala, max 1.6: 1.44 sull'S21, 1 su desktop); le etichette ingrandite si scostano dalle aperture.
+- **Progressione**: nel pannello finale compare "Avanti ›" se c'è un livello dopo e si è presa almeno una stella; "Stelle in tutto: N su 9" nel pannello e nel selettore (il meglio di ogni livello, su questo dispositivo).
+- **Offline e installazione**: `public/sw.js` mette in cache pagina, script, stili, icone e musica alla prima visita; pagina dalla rete se c'è, altrimenti dalla cache. Percorsi relativi (`base: './'`, manifest con `start_url` "."): funziona anche in una sottocartella. Verificato con il build servito in locale e poi il server spento: il gioco parte, musica compresa. (Corretto un primo difetto: i file chiesti con `crossorigin` non combaciavano con la cache per via di "Vary: Origin".)
+- **Nome dell'app**: "Biglietto d'auguri - GAME" (titolo della pagina, nome nell'installazione; nome breve sotto l'icona "Auguri"). Il progetto e il repository restano Xmas-26.
+- **Descrizioni e condivisione**: in `index.html` descrizione, Open Graph, Twitter card e dati strutturati JSON-LD (VideoGame/WebApplication); `public/og.png` (1200×630, rifatta con `node tools/og/crea-og.mjs`), `robots.txt`, `llms.txt` (descrizione in chiaro per gli assistenti AI). L'indirizzo pubblico va messo in `.env` (`VITE_SITE_URL`, con la barra finale): finché è vuoto og:url e og:image sono relativi e le anteprime sui social non sono garantite. Pulsante **Condividi** (`core/share.js`): pannello di condivisione del dispositivo (Web Share API), altrimenti copia testo e link negli appunti con un avviso.
+- **In sospeso — pubblicazione su GitHub Pages**: decisa dall'utente il 19/11, la farà un altro agente. Istruzioni in HANDOFF §9 (indirizzo in `.env`, build, cosa verificare dopo).
+- **Pulizia**: tolti i sei vecchi livelli, aggiornati `CLAUDE.md` e HANDOFF (§2, §3, §8, §9).
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente

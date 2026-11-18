@@ -1,4 +1,4 @@
-import { PHYSICS_DT, MAX_SUBSTEPS, MAX_FPS } from '../config.js';
+import { PHYSICS_DT, MAX_SUBSTEPS, MAX_FPS, IDLE_DIV } from '../config.js';
 
 /** Aggiornamenti consecutivi necessari per cambiare il divisore N (isteresi contro la frequenza variabile). */
 const CAMBIO_N = 30;
@@ -18,7 +18,7 @@ const CAMBIO_N = 30;
  * il tempo dall'ultimo disegno è accumulato e si disegna quando arriva a N periodi (meno mezzo periodo
  * di tolleranza), quindi un aggiornamento perso dal browser non sfasa la cadenza.
  */
-export function startLoop({ update, render }) {
+export function startLoop({ update, render, idle }) {
   let last = performance.now(); // ultimo frame disegnato
   let lastTick = last; // ultima chiamata di rAF (disegnata o no)
   let acc = 0;
@@ -45,13 +45,15 @@ export function startLoop({ update, render }) {
         conferme = 0;
       }
     } else conferme = 0;
-    if (now - last < every * period - period / 2) {
+    // `idle()` vero = scena ferma in attesa del giocatore: si disegna un frame ogni IDLE_DIV (la fisica resta a 60 Hz)
+    const passo = every * (idle?.() ? IDLE_DIV : 1);
+    if (now - last < passo * period - period / 2) {
       requestAnimationFrame(frame);
       return;
     }
     let elapsed = (now - last) / 1000;
     last = now;
-    stats.every = every;
+    stats.every = passo;
     stats.hz = Math.round(1000 / period);
     // Tab in background o pausa lunga: non recuperare il tempo perso.
     if (elapsed > 0.25) elapsed = 0.25;

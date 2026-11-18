@@ -8,7 +8,7 @@ The chronological history with measurements is in [docs/GDD.md](docs/GDD.md).
 
 ## Commands
 - `npm run dev` (Vite :5173, also on the local network) · `npm run build`
-- Test in the browser: `http://localhost:5173/?debug&level=<villaggio-albero|villaggio-fortini|la-collina>` and the `window.xmas` helpers (`sim`, `fire`, `findShot`, `wakeAll`, `game`).
+- Test in the browser: `http://localhost:5173/?debug&level=<borgo-addormentato|bosco-di-cristallo|vetta-del-gufo>` and the `window.xmas` helpers (`sim`, `fire`, `findShot`, `wakeAll`, `game`).
 - Test on Android: [tools/phone/README.md](tools/phone/README.md) (adb + DevTools).
 
 ## Rules

@@ -1,10 +1,12 @@
 import { Box, Vec2 } from 'planck';
-import { VIEW_W, VIEW_H, MAX_DPR, SLING } from './config.js';
+import { VIEW_W, VIEW_H, MAX_DPR, SLING, IDLE_DIV } from './config.js';
 import { startLoop } from './core/loop.js';
 import { attachInput } from './core/input.js';
 import { setupFullscreen } from './core/fullscreen.js';
+import { setupShare } from './core/share.js';
 import { Game } from './game/game.js';
 import { drawScene } from './render/sceneDraw.js';
+import { setHudScale } from './render/view.js';
 import { quality, initQuality, sampleQuality } from './render/quality.js';
 import { LEVELS, findLevel } from './game/levels/index.js';
 import { avviaAudio } from './audio/regia.js';
@@ -37,6 +39,7 @@ function resize() {
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
   pixelScale = canvas.width / VIEW_W;
+  setHudScale(s); // telefoni: HUD ed etichette più grandi
   // Su un telefono 1 px CSS vale ~1.6 px logici: i pulsanti occupano più spazio nella vista logica
   const fr = frame.getBoundingClientRect();
   controlsBottom = (controls.getBoundingClientRect().bottom - fr.top) / s;
@@ -48,6 +51,8 @@ setupFullscreen({
   iosHint: document.getElementById('ios-hint'),
   onChange: resize,
 });
+
+setupShare({ button: document.getElementById('share-btn'), avviso: document.getElementById('avviso') });
 
 // ---------- Gioco e livelli ----------
 const store = {
@@ -70,12 +75,31 @@ game.on('fine', (s) => {
   const prev = best[game.level.id];
   if (!prev || s.score > prev.score) best[game.level.id] = { score: s.score, stars: s.stars };
   store.set('xmas-best', best);
+  // totale delle stelle (il meglio di ogni livello), mostrato nel pannello finale e nel selettore
+  s.totalStars = stelleTotali(best);
+  s.maxStars = LEVELS.length * 3;
 });
+function stelleTotali(best) {
+  return LEVELS.reduce((n, l) => n + (best[l.id]?.stars || 0), 0);
+}
+
+/** Passa a un livello: lo ricorda come ultimo scelto e dice al gioco se ce n'è uno dopo (pulsante "Avanti"). */
+function vaiAlLivello(l) {
+  store.set('xmas-level', l.id);
+  game.hasNext = LEVELS.indexOf(l) < LEVELS.length - 1;
+  game.setLevel(l);
+}
+game.hasNext = LEVELS.indexOf(game.level) < LEVELS.length - 1;
+game.onNext = () => {
+  const i = LEVELS.indexOf(game.level);
+  if (i >= 0 && i < LEVELS.length - 1) vaiAlLivello(LEVELS[i + 1]);
+};
 
 const levelsEl = document.getElementById('levels');
 function openLevels() {
   const best = store.get('xmas-best', {});
   const list = document.getElementById('level-list');
+  levelsEl.querySelector('h2').textContent = `Scegli il livello · ★ ${stelleTotali(best)} su ${LEVELS.length * 3}`;
   list.replaceChildren(
     ...LEVELS.map((l) => {
       const b = document.createElement('button');
@@ -105,9 +129,7 @@ levelsEl.addEventListener('click', (e) => {
     return;
   }
   if (btn.dataset.level) {
-    const l = findLevel(btn.dataset.level);
-    store.set('xmas-level', l.id);
-    game.setLevel(l);
+    vaiAlLivello(findLevel(btn.dataset.level));
   }
   closeLevels();
 });
@@ -176,6 +198,7 @@ function update(dt) {
 
 startLoop({
   update,
+  idle: () => game.fermo,
   render(alpha, elapsed, stats) {
     game.frame(elapsed);
     audio.aggiorna();
@@ -188,7 +211,8 @@ startLoop({
     if (ms > perf.worstMs) perf.worstMs = ms;
     if (elapsed * 1000 > perf.worstFrameMs) perf.worstFrameMs = elapsed * 1000;
     // Qualità automatica: si scende di livello solo a scena ferma (mai durante un volo)
-    if (sampleQuality(elapsed, game.state === 'ready' || game.state === 'end')) resize();
+    // (a scena ferma i frame sono volutamente più radi, IDLE_DIV: il tempo misurato si riporta al frame normale)
+    if (sampleQuality(game.fermo ? elapsed / IDLE_DIV : elapsed, game.state === 'ready' || game.state === 'end')) resize();
 
     if (!DEBUG || (hudTimer += 1) % 15 !== 0) return;
     const c = game.pw.counts();
@@ -230,3 +254,8 @@ function findShot(type, zone, a0 = 0.1, a1 = 1.35, p0 = 1.2, p1 = 2.2) {
 
 // Accesso da console/DevTools per test e taratura.
 window.xmas = { game, wakeAll, stress, sim, fire, findShot, perf, quality, audio };
+
+// Funzionamento offline (solo nel build pubblicato): il service worker mette in cache il gioco alla prima visita
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}

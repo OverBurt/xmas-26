@@ -1,6 +1,6 @@
 # Xmas-26 — Handoff guide
 
-> Document to pick up the project without prior context. It describes the current state (18/11/2026),
+> Document to pick up the project without prior context. It describes the current state (19/11/2026),
 > how to run and test the game, the architecture, the rules in force, the decisions made with the user and the next steps.
 > The detailed, chronological history of every iteration (with measurements) is in [GDD.md](GDD.md), from §7 onwards.
 
@@ -27,13 +27,10 @@ snow and ice that break realistically. A parcel is delivered (and scores points)
 | M3 houses, deliveries, scoring, end of level | ✅ also on the phone (before the later iterations) |
 | Obstacle iterations (snow, tree, arches, ice sculptures, igloo) | ✅ on desktop only |
 | Opening camera sequence, level selector | ✅ (part of M5 brought forward) |
-| **M4 setting** (direction A "Notte di velluto": parallax backdrop, cartoon houses with three rooms, snow caps, falling snow, HUD, quality tiers) | ✅ on desktop Chrome only — **not measured on the phone** |
-| **M5 direction and UX**: synthesized audio (effects + music + mute), "Buone Feste" end screen, plugged-opening labels (tap-to-fast-forward removed on request) | ✅ desktop Chrome headless only — **not listened to, not on the phone** |
-| M5 rest: progression between levels, total stars | ❌ |
-| **M6 polish** (quality tiers, offline PWA, iOS tests, HTTPS publishing) | ❌ |
-| Level 3 "La tormenta" (chairlift + wind) | ❌ only proposed |
-
-**The latest changes (since the "La collina" level onwards, including the sinuous tree and the vertical forts) have not been tested on the phone; verified in desktop Chrome only**: it was asleep/locked. Retest on Android (see §4).
+| **M4 setting** (direction A "Notte di velluto": parallax backdrop, two house styles, snow caps, falling snow, HUD, quality tiers) | ✅ also on the S21 |
+| **M5 direction and UX**: audio (synthesized effects + pre-recorded music, separate music/effects volume and mute), "Buone Feste" end screen, plugged-opening labels, **"Avanti" button to the next level, total stars** | ✅ on the S21 too — **sounds never listened to by the agent: the user judges them** |
+| Three levels of increasing difficulty, calibrated (19/11) | ✅ |
+| **M6**: quality tiers ✅, idle frame halving + text cache ✅, **offline service worker + installable manifest ✅ (tested with `vite preview`, server stopped)**, HTTPS publishing ❌ (**pending: GitHub Pages, to be done by another agent**, see §9), iOS test ❌ (planned by the user) | partial |
 
 ## 3. Running the project
 
@@ -49,7 +46,10 @@ npm run build      # static output in dist/
 ### Levels (`src/game/levels/`, order in `index.js`)
 **Current selector (19/11): `borgo-addormentato` (easy), `bosco-di-cristallo` (medium), `vetta-del-gufo` (hard) — points and stars calibrated on 19/11 (GDD, last chronological entries); tested on the S21. Older JSONs are kept in the folder, unlisted.**
 
-**One level for now** (user decision, 18/11): `il-villaggio` — from the left: pine, sleigh, sling, **crystal tree right after the sling**, arcade fort (2 arches × 2 storeys, ice bridge, snowmen) towards the houses, house A on the ground (snow drift at the door), **pine between the houses**, house B on a 3 m hill (snow cap on the chimney), **three pines** after it. Currently **very hard** (medium simulated player 1.6 deliveries out of 5): scoring/difficulty to be tuned later (user decision). The old JSONs (`villaggio-albero`, `villaggio-fortini`, `la-collina`) are still in the folder but not listed and use superseded keys.
+- **Il borgo addormentato** (easy): small crystal tree, narrow fort with the fragile ice spire and a snowman right in front of the baita, casetta on a 1.5 m rise; no plugged openings; full trajectory preview.
+- **Il bosco di cristallo** (medium): two crystal trees after the sling, one hill with the spire fort in front of the casetta, then a small tree, an igloo with a snowman and the baita; 2 plugged openings; preview up to 31 m from the sling.
+- **La vetta del gufo** (hard): wide fort with a card castle in front of a small baita, big tree, a 2.5 m step with the spire fort and a casetta, a 5 m summit with a second casetta; 3 plugged openings; preview up to 28 m.
+Level-specific keys: `camera.aimMaxW` (view width at full pull: must reach the last house), `previewDist` (trajectory shown up to this distance from the sling), house `stile`. The older levels were deleted (git history).
 
 ### Measurement tools (`tools/sim/`, headless, seeded)
 - `npm test` — stability of every listed level (≤ 3 cm, 0 breaks, all asleep).
@@ -271,28 +271,32 @@ Music (pre-recorded in `public/audio/musica.m4a`, AAC 48 kbps mono, 855 KB, 140.
 
 ## 8. Known issues / open questions
 
-- **Graphics (M4)**: done in direction A, verified only in desktop Chrome (headless). To check on the phone: FPS during a collapse, memory of the parallax layers (about 30 MB at tier alta), the automatic quality step-down. Text uses system rounded fonts only (`GFX.font`): on devices without one it falls back to the system sans. The drawing deliberately exceeds the physical polygons in a few places (roof snow ~11 cm above the slope and up to 35 cm below the eaves, gift bows, snowman hats): see GDD.
-- **Untested on the phone** since "La collina" onwards (snow, igloo, ice sculptures, glass, intro, chimney edge). Measure FPS during the big collapses (peak ~110 bodies).
-- **Star thresholds** were raised with the new scoring but are provisional: tune them by playing.
-- Collapse spike solved by the simpler forts (peak 101 bodies, worst frame 9 ms on desktop); still to measure on the phone.
-- The filler blocks beside the outer arches settle by 4–7 cm when they wake up (harmless, but visible if you look closely).
-- The scenery isn't designed for the iPhone: the "rotate the phone" overlay and the hint for adding it to the Home Screen exist, but have never been tested on iOS.
-- The old `iceTower.js` and the "wall" fort type (without arches) are no longer used in the levels.
-- Audio: verified only by counting the requested sounds/voices in headless Chrome (no audio output there); never listened to, never tested on Android/iOS (iOS needs the first touch to unlock — same code path, untested).
+- **Audio never listened to by the agent** (no audio output in its browser): kazoo sling voice, recorded music, crystal tinkle, "Fiu!" of vanishing gifts, volumes. The user judges them; tune `AUDIO` / `effetti.js`.
+- **iOS never tested** (rotate overlay, Home Screen hint, audio unlock on first touch, AAC loop, service worker): planned by the user.
+- **Social previews need the public URL**: set `VITE_SITE_URL` in `.env` (with trailing slash) before building, otherwise `og:url`/`og:image` stay relative. App name shown to players: "Biglietto d'auguri - GAME" (project/repo stay Xmas-26).
+- **Not published yet**: no remote. Publishing on GitHub Pages is pending and assigned to another agent (see §9, step 1). The build is static (`dist/`, relative paths, `sw.js`); it needs HTTPS for the service worker and the install prompt.
+- Text uses system rounded fonts only (`GFX.font`); on devices without one it falls back to the system sans.
+- The drawing deliberately exceeds the physical polygons in a few places (roof snow, gift bows, snowman hats, enlarged tree crystals, ground snow mounds): see GDD.
+- Idle frame halving (`IDLE_DIV`): ambient animations (snow, stars, crystals in the wind) run at 30 FPS while the scene waits for the player; any gesture or movement brings back 60.
+- After changing obstacles or houses always rerun `npm run sim:score -- <id>` and `npm run sim:play -- <id> --stars`.
+- Service worker: bump `VERSIONE` in `public/sw.js` when publishing a new build if stale files must be dropped at once.
 - Automated checks: only `npm test` (stability); the rest is verified with the `tools/sim` measurements and in the browser/phone with the `xmas.*` helpers.
-- Phone: the level name is now drawn below the DOM buttons using their measured height (`hudTop`); to confirm on the real S21.
 
 ## 9. Recommended next steps
 
-1. **Phone test** of the current state (all 3 levels; FPS during collapses; gestures; intro; selector).
-2. **M4 setting**: implemented (see GDD, "M4 «ambientazione»"). Left to do: phone measurements and tuning of `GFX.tiers`/`GFX.auto`; user's choices still open: bundled rounded web font or system fonts, optional foreground layer (advised against), minimal reindeer idle animation already in place.
-3. **M5**: audio, "Buone Feste", plugged labels are done (GDD "M5 «regia e audio»"): **listen to them for real** (desktop + S21: volumes, ducking, the reindeer voice, how dense a collapse sounds; tune `AUDIO`). Left: progression to the next level, total stars.
-4. **Level 3 "La tormenta"**: proposed with a swinging chairlift (Planck joints) and wind that pushes the parcel; to be agreed with the user.
-5. **M6**: quality tiers, offline service worker, publishing over HTTPS (installable PWA), iOS test.
+1. **PENDING — publish on GitHub Pages** (decided by the user on 19/11; **another agent will do it**, nothing has been published and no remote exists yet). What that agent needs to know:
+   - The build is static: `npm run build` → `dist/` (relative paths thanks to `base: './'` in `vite.config.js`, so a project page under `/<repo>/` works; `sw.js`, `manifest.webmanifest`, `og.png`, `robots.txt`, `llms.txt`, `audio/musica.m4a` are copied from `public/`).
+   - **Before building, set the public address in `.env`** (not versioned: copy `.env.example` to `.env`): `VITE_SITE_URL=https://<user>.github.io/<repo>/` (with the trailing slash). It fills `canonical`, `og:url`, `og:image`, `twitter:image` and the JSON-LD in `index.html`; while it is empty the social previews are not guaranteed.
+   - Publish the content of `dist/` (GitHub Actions with the Pages artifact, or a `gh-pages` branch). `dist/` is in `.gitignore`.
+   - After publishing: check the social preview with a link debugger, the install as an app on Android (manifest + service worker need HTTPS), the offline start after the first visit, the "Condividi" button on the phone (Web Share API). When re-publishing a new build, bump `VERSIONE` in `public/sw.js` if stale cached files must be dropped at once.
+   - `robots.txt` has no `Sitemap` line and there is no sitemap: add one only if wanted.
+2. **iOS test** (user, planned): layout, audio, offline.
+3. Listen to the audio on the phone and tune volumes.
+4. Optional: more levels; unlock levels by stars (today all are selectable).
 
 ## 10. Git and conventions
 
-- Branch `main`. `variante-albero` already merged (fast-forward). Commit messages in Italian, with a short descriptive title and bullet points; final attribution line `Co-Authored-By` as the harness asks.
+- Branch `main`, remote `origin` = private repository `github.com/OverBurt/xmas-26`. `variante-albero` already merged (fast-forward), only local. `.env` and `.idea/` are not versioned (template in `.env.example`). Commit messages in Italian, with a short descriptive title and bullet points; final attribution line `Co-Authored-By` as the harness asks.
 - Commit only when the user asks for it. Update [GDD.md](GDD.md) (chronological section with measurements) and this file after every significant change.
 - Comments and UI texts in Italian; all tunable constants go in `config.js` with a comment (house measures in `HOUSE`, re-exported by `house.js` for the renderer; snow powder in `SNOW.powder`; tap slop in `GESTURE`).
 - Stacked pieces: import `GAP` (and `ccw`) from `src/physics/polygon.js`, never redefine them.

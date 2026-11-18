@@ -72,10 +72,18 @@ export function endLevel(g) {
   g.summary = summarize(g);
   // Pulsanti in basso nel pannello (coordinate logiche)
   const by = VIEW_H / 2 + 136; // sotto il dettaglio del pannello "Buone Feste" (hudDraw.drawSummary)
-  g.buttons = [
-    { action: 'levels', label: 'Livelli', x: VIEW_W / 2 - 230, y: by, w: 210, h: 56, secondary: true },
-    { action: 'retry', label: 'Riprova', x: VIEW_W / 2 + 20, y: by, w: 210, h: 56 },
-  ];
+  // "Avanti" compare se c'è un livello successivo (g.hasNext, da main.js) e si è presa almeno una stella
+  const avanti = g.hasNext && g.summary.stars >= 1;
+  g.buttons = avanti
+    ? [
+        { action: 'levels', label: 'Livelli', x: VIEW_W / 2 - 262, y: by, w: 164, h: 56, secondary: true },
+        { action: 'retry', label: 'Riprova', x: VIEW_W / 2 - 82, y: by, w: 164, h: 56, secondary: true },
+        { action: 'next', label: 'Avanti ›', x: VIEW_W / 2 + 98, y: by, w: 164, h: 56 },
+      ]
+    : [
+        { action: 'levels', label: 'Livelli', x: VIEW_W / 2 - 230, y: by, w: 210, h: 56, secondary: true },
+        { action: 'retry', label: 'Riprova', x: VIEW_W / 2 + 20, y: by, w: 210, h: 56 },
+      ];
   g.setState('end');
   const b = g.level.bounds;
   g.camera.follow = null;
@@ -99,7 +107,8 @@ export function updateTurn(g) {
     // Scena ferma: i pacchi non consegnati svaniscono subito, poi si resta ancora TURN.afterPause a guardare
     // prima di tornare all'inquadratura di mira (o al riepilogo).
     if (g.fermoDa === null && g.stateTime > minSettle && calm && giftsResting(g)) {
-      g.fermoDa = g.stateTime;
+      // la pausa serve solo a veder sparire un pacco: se non ce ne sono si torna subito alla mira
+      g.fermoDa = g.stateTime - (g.thrown.length ? 0 : TURN.afterPause);
       svanisci(g);
     }
     if (g.fermoDa !== null && g.stateTime - g.fermoDa >= TURN.afterPause) nextTurn(g);

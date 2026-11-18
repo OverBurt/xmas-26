@@ -38,7 +38,8 @@ import { deliver, checkDeliveries, totalScore, breakScore, crystals } from './sc
  *  'fine'      riepilogo (vedi scoring.summarize)    fine livello
  * Gli ascoltatori sopravvivono a reset() e setLevel().
  *
- * Callback rimasta: onLevels() (pulsante "Livelli" del pannello finale, la gestisce main.js).
+ * Callback rimaste, gestite da main.js: onLevels() (pulsante "Livelli" del pannello finale) e onNext() (pulsante
+ * "Avanti", presente se `hasNext` è vero e si è presa almeno una stella).
  */
 export class Game extends Emitter {
   constructor(level) {
@@ -165,6 +166,21 @@ export class Game extends Emitter {
 
   endLevel() {
     endLevel(this);
+  }
+
+  /**
+   * Scena ferma in attesa del giocatore: nessun gesto in corso, niente che si muove (corpi, camera, particelle,
+   * punti che volano, pacchi che svaniscono, cristalli che cadono, pacco che sale sulla fionda). Il loop allora
+   * disegna meno frame (IDLE_DIV): restano solo le animazioni d'ambiente (neve, stelle, cristalli al vento).
+   */
+  get fermo() {
+    if (this.mode || this.carry || this.sling.loadAnim) return false;
+    if (this.state !== 'ready' && !(this.state === 'end' && this.stateTime > 3)) return false;
+    const c = this.camera;
+    if (Math.abs(c.cx - c.tcx) > 0.02 || Math.abs(c.viewW - c.tViewW) > 0.02) return false;
+    if (this.floaters.length || this.puffs.length || this.particles.list.length) return false;
+    if (this.trees.some((t) => t.falling.length) || this.reindeer.some((r) => r.scare > 0)) return false;
+    return this.pw.counts().awake === 0;
   }
 
   // ---------------------------------------------------------------- update

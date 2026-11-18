@@ -1,8 +1,9 @@
 import { VIEW_W, VIEW_H, GFX, GIFTS, SCORE } from '../config.js';
 import { WALL, isPlugged } from '../entities/house.js';
 import { centroid } from '../physics/polygon.js';
-import { X, Y, TAU, stella5, V, setView } from './view.js';
+import { X, Y, TAU, stella5, V, setView, HUD } from './view.js';
 import { cappello } from './snow.js';
+import { daCache } from './textCache.js';
 import { drawGiftIcon } from './propsDraw.js';
 
 const C = GFX.colors;
@@ -95,7 +96,15 @@ function fiocco(c, x, y, r, col) {
  * Tappata (neve sul camino o cumulo alla porta): bordo azzurro, fiocco di neve e un cuscinetto di neve
  * sul bordo superiore; torna normale quando la neve è stata tolta.
  */
-function etichetta(c, tipo, punti, x, y, top, calata, tappata) {
+function etichetta(ctx, tipo, punti, x, y, top, calata, tappata) {
+  // dalla cache: si ridisegna solo quando cambiano valore o stato (textCache.js)
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(HUD.k, HUD.k); // più grande sui telefoni
+  daCache(ctx, `et|${tipo}|${punti}|${top}|${calata}|${tappata}`, 0, 0, 160, 40, 80, 26, (c) => disegnaEtichetta(c, tipo, punti, 0, 0, top, calata, tappata));
+  ctx.restore();
+}
+function disegnaEtichetta(c, tipo, punti, x, y, top, calata, tappata) {
   c.font = `600 14px ${FONT}`;
   c.textBaseline = 'middle';
   c.textAlign = 'left';
@@ -158,14 +167,15 @@ export function drawWorldLabels(ctx, game) {
 }
 
 function disegnaEtichette(ctx, game) {
+  const fuori = (HUD.k - 1) * 42; // etichette ingrandite (telefoni): si scostano perché non coprano l'apertura
   for (const h of game.houses) {
     for (const z of h.zones) {
       const top = z.points >= SCORE.maxPoints && !z.count;
       const tappata = z.type !== 'window' && isPlugged(h, z.type);
-      if (z.type === 'chimney') etichetta(ctx, z.type, z.points, X(h.chimney.top.x + 0.9), Y(h.chimney.top.y + 0.75), top, z.count > 0, tappata);
+      if (z.type === 'chimney') etichetta(ctx, z.type, z.points, X(h.chimney.top.x + 0.9) + fuori, Y(h.chimney.top.y + 0.75) - fuori * 0.3, top, z.count > 0, tappata);
       else {
         const c = centroid(z.poly);
-        etichetta(ctx, z.type, z.points, X(c.x - WALL - ZONE_LABEL_OFFSET - 0.35), Y(c.y), top, z.count > 0, tappata);
+        etichetta(ctx, z.type, z.points, X(c.x - WALL - ZONE_LABEL_OFFSET - 0.35) - fuori, Y(c.y), top, z.count > 0, tappata);
       }
     }
   }
@@ -214,6 +224,50 @@ export function drawHud(ctx, game, top = 0) {
   if (game.sling.loaded) tipi.push(game.sling.loaded.type);
   if (game.carry) tipi.push(game.carry.gift.type);
   const punti = game.score.toLocaleString('it-IT');
+  // Tre pezzi dalla cache (textCache.js): si ridisegnano solo quando cambia il contenuto.
+  // Sui telefoni tutto è ingrandito di HUD.k: i due pezzi a sinistra attorno all'angolo, il nome attorno al suo bordo destro.
+  const k = HUD.k;
+  ctx.save();
+  ctx.scale(k, k);
+  daCache(ctx, `hud|${tipi.join(',')}|${punti}`, 0, 0, 460, 62, 0, 0, (c) => hudPacchiPunti(c, tipi, punti));
+  ctx.restore();
+  const yn = Math.max(76, top + 8 + 10 * k); // sotto i pulsanti: su desktop a 76, sul telefono più in basso
+  ctx.save();
+  ctx.translate(VIEW_W - 16, yn);
+  ctx.scale(k, k);
+  daCache(ctx, `nome|${game.level.name}`, 0, 0, 620, 24, 620, 12, (c) => {
+    c.globalAlpha = 0.72;
+    c.fillStyle = '#fff';
+    c.textBaseline = 'middle';
+    c.textAlign = 'right';
+    c.font = `500 14px ${FONT}`;
+    c.fillText(game.level.name, 0, 0);
+  });
+  ctx.restore();
+  let hint = '';
+  if (game.state === 'ready') {
+    if (game.sling.loaded) hint = 'Tira indietro il pacco e rilascia';
+    else if (game.sleigh.count) hint = 'Trascina un pacco sulla fionda e tira indietro';
+  } else if (game.state === 'intro') hint = 'Tocca per saltare';
+  if (hint) {
+    ctx.save();
+    ctx.scale(k, k);
+    daCache(ctx, `hint|${hint}`, 0, 62, 460, 40, 0, 0, (c) => {
+      c.font = `600 15px ${FONT}`;
+      const w = c.measureText(hint).width + 36;
+      pillola(c, 16, 4, w, 32);
+      c.fillStyle = '#fff';
+      c.textAlign = 'left';
+      c.textBaseline = 'middle';
+      c.globalAlpha = 0.9;
+      c.fillText(hint, 34, 21);
+    });
+    ctx.restore();
+  }
+}
+
+/** Pillola in alto a sinistra: pacchi rimasti e punti (px logici dall'angolo dello schermo). */
+function hudPacchiPunti(ctx, tipi, punti) {
   ctx.font = `700 22px ${FONT}`;
   const wn = ctx.measureText(punti).width;
   const wi = Math.max(1, tipi.length) * 27 + 14;
@@ -241,28 +295,6 @@ export function drawHud(ctx, game, top = 0) {
   ctx.font = `500 13px ${FONT}`;
   ctx.globalAlpha = 0.7;
   ctx.fillText('punti', x + 22 + wn, 39);
-  ctx.globalAlpha = 0.72;
-  ctx.textAlign = 'right';
-  ctx.font = `500 14px ${FONT}`;
-  // sotto i pulsanti: su desktop a 76, sul telefono (pulsanti più grandi nella vista logica) più in basso
-  ctx.fillText(game.level.name, VIEW_W - 16, Math.max(76, top + 16));
-  ctx.globalAlpha = 1;
-
-  let hint = '';
-  if (game.state === 'ready') {
-    if (game.sling.loaded) hint = 'Tira indietro il pacco e rilascia';
-    else if (game.sleigh.count) hint = 'Trascina un pacco sulla fionda e tira indietro';
-  } else if (game.state === 'intro') hint = 'Tocca per saltare';
-  if (hint) {
-    ctx.font = `600 15px ${FONT}`;
-    const w = ctx.measureText(hint).width + 36;
-    pillola(ctx, 16, 66, w, 32);
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'left';
-    ctx.globalAlpha = 0.9;
-    ctx.fillText(hint, 34, 83);
-    ctx.globalAlpha = 1;
-  }
 }
 
 /** Pacco sopra il bordo della vista: freccia del suo colore sul bordo superiore. */
@@ -474,7 +506,9 @@ export function drawSummary(ctx, game) {
   ];
   if (s.bonus) lines.push(`Tutte le case servite  ·  +${s.bonus}`);
   if (s.penalty) lines.push(`Renne spaventate: ${s.reindeerHits}  ·  −${s.penalty}`);
-  lines.forEach((l, i) => testo(ctx, l, VIEW_W / 2, yc + 246 + i * 23, 15, { col: 'rgba(255,255,255,0.84)', peso: 500, bordo: false }));
+  if (s.totalStars !== undefined) lines.push(`Stelle in tutto: ${s.totalStars} su ${s.maxStars}`); // totale sui livelli (main.js)
+  const kd = Math.min(HUD.k, 1.3); // dettaglio più leggibile sui telefoni (c'è spazio fino ai pulsanti)
+  lines.forEach((l, i) => testo(ctx, l, VIEW_W / 2, yc + 246 + i * 23 * kd, 15 * kd, { col: 'rgba(255,255,255,0.84)', peso: 500, bordo: false }));
   for (const b of game.buttons) {
     ctx.beginPath();
     ctx.roundRect(b.x, b.y, b.w, b.h, b.h / 2);

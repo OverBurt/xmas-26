@@ -1,0 +1,11 @@
+# Biglietto d'auguri - GAME
+
+> Un biglietto d'auguri di Natale da giocare nel browser: con una fionda si lanciano i regali dentro le case di un villaggio innevato.
+
+- Tipo: gioco gratuito a giocatore singolo, in italiano, per telefono (in orizzontale) e computer. Nessuna registrazione, nessun dato raccolto.
+- Come si gioca: si trascina un pacco dalla slitta alla fionda, si tira indietro e si rilascia. Un pacco è consegnato se entra da una porta, da una finestra o dal camino di una casa. Ogni livello ha cinque pacchi.
+- Ostacoli: fortini di neve con sculture di ghiaccio, pupazzi di neve, alberi di cristalli, igloo. Si possono abbattere per aprirsi la strada. Colpire una renna toglie punti.
+- Punteggio: le aperture più difficili da centrare valgono di più; fino a tre stelle per livello.
+- Livelli: Il borgo addormentato (facile), Il bosco di cristallo (medio), La vetta del gufo (difficile).
+- Funziona anche senza rete dopo la prima visita e si può aggiungere alla schermata Home.
+- Si può mandare agli amici con il pulsante "Condividi".

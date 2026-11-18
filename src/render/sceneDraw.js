@@ -8,7 +8,6 @@ import { buildTreeSprite, drawTree, buildPineSprite } from './treeDraw.js';
 import { buildGiftSprites, drawGift, buildSleighSprite, drawSling, buildDecorSprites, drawSprites, resetSnowmanSprites } from './propsDraw.js';
 import { drawBodies, resetBodySprites } from './bodiesDraw.js';
 import { drawReindeer } from './reindeerDraw.js';
-import { drawReindeerCartoon } from './reindeerCartoon.js';
 import { drawSnowfall, drawSmoke } from './weather.js';
 import { drawWorldLabels, drawHud, drawIntroTitle, drawSummary, drawTrajectory, drawOffscreenArrow } from './hudDraw.js';
 
@@ -99,7 +98,7 @@ export function drawScene(ctx, game, alpha, o = {}) {
   if (on('renne') && game.reindeer.length) {
     ctx.save();
     camera.apply(ctx);
-    for (const r of game.reindeer) (GFX.renne === 'classica' ? drawReindeer : drawReindeerCartoon)(ctx, r, t);
+    for (const r of game.reindeer) drawReindeer(ctx, r, t);
     ctx.restore();
   }
 

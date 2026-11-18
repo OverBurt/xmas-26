@@ -17,6 +17,16 @@ export function setView(ppm, left, bot, h) {
 }
 export const TAU = Math.PI * 2;
 
+/**
+ * Ingrandimento di HUD ed etichette sugli schermi piccoli. Il disegno è in px logici (1280×600): su un telefono
+ * un px logico vale ~0.6 px dello schermo e i testi da 14 px diventerebbero illeggibili. `k` = 1 su desktop,
+ * cresce fino a GFX.hudScaleMax quando la scena è rimpicciolita (impostato da main.js a ogni ridimensionamento).
+ */
+export const HUD = { k: 1 };
+export function setHudScale(scalaCss) {
+  HUD.k = Math.min(GFX.hudScaleMax, Math.max(1, GFX.hudScaleRef / scalaCss));
+}
+
 /** Generatore pseudo-casuale a seme fisso, separato da quello del gioco (non altera fratture e simulazioni). */
 export function seeded(seed) {
   return () => {
