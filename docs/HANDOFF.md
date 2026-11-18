@@ -30,6 +30,7 @@ snow and ice that break realistically. A parcel is delivered (and scores points)
 | **M4 setting** (direction A "Notte di velluto": parallax backdrop, two house styles, snow caps, falling snow, HUD, quality tiers) | ✅ also on the S21 |
 | **M5 direction and UX**: audio (synthesized effects + pre-recorded music, separate music/effects volume and mute), "Buone Feste" end screen, plugged-opening labels, **"Avanti" button to the next level, total stars** | ✅ on the S21 too — **sounds never listened to by the agent: the user judges them** |
 | Three levels of increasing difficulty, calibrated (19/11) | ✅ |
+| **Issue #1 (review after the phone test, 18/11)**: start page with PLAY, graphic level page with previews, icon buttons + Install, buttons hidden while aiming/flying, closer aim view, softer snow sound, owl-in-the-moon icon and banner, end panel clear of the buttons, lower third house on level 3, foreground parallax layer, side reindeer with head up | ✅ on desktop and on the S21, published on 18/11 — **sounds not listened to by the agent** |
 | **M6**: quality tiers ✅, idle frame halving + text cache ✅, **offline service worker + installable manifest ✅ (tested with `vite preview`, server stopped)**, HTTPS publishing ✅ (**GitHub Pages: https://overburt.github.io/xmas-26/**, automatic at every push on `main`, see §9), iOS test ❌ (planned by the user) | partial |
 
 ## 3. Running the project
@@ -48,8 +49,21 @@ npm run build      # static output in dist/
 
 - **Il borgo addormentato** (easy): small crystal tree, narrow fort with the fragile ice spire and a snowman right in front of the baita, casetta on a 1.5 m rise; no plugged openings; full trajectory preview.
 - **Il bosco di cristallo** (medium): two crystal trees after the sling, one hill with the spire fort in front of the casetta, then a small tree, an igloo with a snowman and the baita; 2 plugged openings; preview up to 31 m from the sling.
-- **La vetta del gufo** (hard): wide fort with a card castle in front of a small baita, big tree, a 2.5 m step with the spire fort and a casetta, a 5 m summit with a second casetta; 3 plugged openings; preview up to 28 m.
+- **La vetta del gufo** (hard): wide fort with a card castle in front of a small baita, big tree, a 2.5 m step with the spire fort and a casetta, a 4 m summit with a second small baita (lowered and changed from a casetta on 18/11, issue #1: the tall house was cut off by the flight view); 3 plugged openings; preview up to 28 m. After that change the simulated players score more here (median 6700 vs 5200): stars are now 3200/6700/10000.
+Aim view (issue #1): `aimW` 22 m (23 on level 3) with the left edge at −1 m, closer than the previous 26 m so sling and parcels look bigger; pulling the band still widens the view to `aimMaxW`.
+Reindeer poses: `fronte` and `fianco` (side view, head up: looks ahead and every `REINDEER.sguardo.ciclo` s turns to the camera; the collision shape has the raised head). `bruca` no longer exists.
 Level-specific keys: `camera.aimMaxW` (view width at full pull: must reach the last house), `previewDist` (trajectory shown up to this distance from the sling), house `stile`. The older levels were deleted (git history).
+
+### Start page, level page, images (issue #1)
+- **Start page**: on a normal opening the game is in state `titolo` (`Game.showTitle()`): the level is built and still in the aim view, `hudDraw.drawTitle` draws title, lights and the PLAY button on the canvas, the owl looks at PLAY (`GFX.titolo`). A tap anywhere, Enter or Space calls `game.onPlay` → opening sequence. With `?level=` or `?debug` the title is skipped (tools and tests rely on it). On the title only audio/share/install/fullscreen buttons remain, moved to the bottom right.
+- **Level page** (`#levels`, DOM): one card per level with a preview image `public/livelli/<id>.webp`, number, name, stars, best score. **Regenerate the previews with `npm run anteprime` when a level changes** (dev server running).
+- **Icon** `public/icon.svg` (owl on the pine tip against the moon, hand-written from the shapes in `backdrop.js`) → `npm run icone` makes `icon-512.png` / `icon-180.png`. **Banner** `public/og.png` = screenshot of the start page → `npm run og` (dev server running). All three use headless Chrome.
+- **Buttons during a level**: collapsed behind a three-dot button (`#menu-btn`; classes `.gioco` / `.aperto` on `#controls`, set by `main.js`); opening animates the buttons in with a small label under each (`data-etichetta`); they close on a second tap or on a touch on the scene. On the start page and on the end panel all buttons are visible. Chrome's tap highlight is off; pressed buttons turn gold.
+- **Inactivity**: after `TURN.inattivita` (120 s) without pointer/keyboard events inside a level the game resets and returns to the start page (never with `?level` / `?debug`).
+- **Opening sequence**: `INTRO.attesa` (1 s still on the houses with the level name), then `INTRO.duration` (6.2 s) with a very slow start (`INTRO.partenza`), level name visible until `attesa + titolo`.
+- **Install button** (`core/install.js`): shown only when the browser fires `beforeinstallprompt` and the game is not running standalone; iOS keeps the Home Screen hint.
+- **End panel placement**: `view.panelFit()` moves the panel below the DOM buttons and shrinks it if needed when they would overlap (phones); used by both `drawSummary` and the button hit test in `gestures.js`. `main.js` keeps the buttons' box updated (`setUiBox`).
+- **Foreground layer** (`GFX.parallax.primo`, factor 1.3, from the "Notte di velluto" design artifact): low snow mounds, bushes and a few fence posts along the bottom edge, drawn after the scene (`Backdrop.drawFront`), nothing in front of sleigh and sling in the aim view, off in the low quality tier (`tiers.*.front`), `?salta=primo` to switch it off.
 
 ### Measurement tools (`tools/sim/`, headless, seeded)
 - `npm test` — stability of every listed level (≤ 3 cm, 0 breaks, all asleep).
@@ -93,7 +107,7 @@ src/
 │  ├─ musica.js          plays public/audio/musica.m4a in a seamless loop (one buffer source, decoded once)
 │  ├─ arrangiamento.js   "Jingle Bells" chorus + verse (1857, public domain), our arrangement: NOT run in the game, only by tools/audio/registra-musica.mjs (`npm run musica`) to re-record the file
 │  └─ regia.js           avviaAudio(game, {button}): game events → sounds, break grouping, music ducking, mute button + M key; `aggiorna()` every frame
-├─ style.css             phone frame on desktop, DOM buttons, selector, "rotate the phone" overlay
+├─ style.css             phone frame on desktop, DOM buttons (icons; hidden with `.via` while aiming/flying), level page (cards sized in `--u` = screen px per logical px), "rotate the phone" overlay
 ├─ core/
 │  ├─ loop.js            fixed 1/60 timestep with accumulator + interpolation; FPS cap = draw every N-th screen refresh
 │  │                     (N integer, regular cadence: 60 Hz→60, 90→90, 120→60, 144→72); `stats.hz`/`stats.every` in the debug HUD
@@ -216,7 +230,7 @@ Music (pre-recorded in `public/audio/musica.m4a`, AAC 48 kbps mono, 855 KB, 140.
   "preview": 0.6,                                              // fraction of the trajectory preview
   "previewDist": 12,            // optional: trajectory preview shown only up to this distance (m) from the sling, whatever the pull; replaces "preview"
   "stars": [2000, 3500, 5000],                                 // thresholds for 1–3 stars
-  "camera": { "aimCenter": 12, "aimW": 26 },                   // framing at rest on the sling
+  "camera": { "aimCenter": 10, "aimW": 22 },                   // framing at rest on the sling
   "forts": [                                                   // snow forts
     { "x": 12, "arches": 3, "pierRows": 4, "upperRows": 1,     // arcade (without "arches": wall with "cols","rows")
       "ice": { "sculpture": "ponte", "margin": 1.3 },          // ice sculpture on top (piramide|torre|ponte)
@@ -279,7 +293,9 @@ Music (pre-recorded in `public/audio/musica.m4a`, AAC 48 kbps mono, 855 KB, 140.
 - The drawing deliberately exceeds the physical polygons in a few places (roof snow, gift bows, snowman hats, enlarged tree crystals, ground snow mounds): see GDD.
 - Idle frame halving (`IDLE_DIV`): ambient animations (snow, stars, crystals in the wind) run at 30 FPS while the scene waits for the player; any gesture or movement brings back 60.
 - After changing obstacles or houses always rerun `npm run sim:score -- <id>` and `npm run sim:play -- <id> --stars`.
-- Service worker: bump `VERSIONE` in `public/sw.js` when publishing a new build if stale files must be dropped at once.
+- Level 3 is now easier than before for the simulated players (third house lower and wider): if it must stay the hardest, plug or shrink an opening and rerun score/play.
+- On level 3 the card castle reaches the moon in the aim view (it did already with the wider view).
+- Service worker (now `xmas26-v3`, it also pre-caches the level previews — the list of names is in `sw.js`): bump `VERSIONE` in `public/sw.js` when publishing a new build if stale files must be dropped at once.
 - Automated checks: only `npm test` (stability); the rest is verified with the `tools/sim` measurements and in the browser/phone with the `xmas.*` helpers.
 
 ## 9. Recommended next steps

@@ -1,5 +1,6 @@
-import { CAMERA, SLING, TRAJECTORY, VIEW_H, GESTURE } from '../config.js';
+import { CAMERA, SLING, TRAJECTORY, VIEW_W, VIEW_H, GESTURE } from '../config.js';
 import { predictTrajectory } from '../physics/trajectory.js';
+import { panelFit } from '../render/view.js';
 
 /**
  * Gesti (Pointer Events in coordinate logiche 1280×600) → azioni del gioco.
@@ -12,12 +13,19 @@ export function pointerDown(g, p) {
   const w = g.camera.screenToWorld(p.x, p.y);
   g.panIdle = null;
 
+  if (g.state === 'titolo') {
+    g.onPlay?.(); // pagina di avvio: un tocco in qualunque punto fa partire il gioco
+    return;
+  }
   if (g.state === 'intro') {
     g.endIntro(); // tocco durante l'intro: si salta
     return;
   }
   if (g.state === 'end') {
-    const b = g.buttons.find((b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
+    // il pannello può essere spostato e rimpicciolito per non toccare i pulsanti in alto (view.panelFit)
+    const { f, dy } = panelFit();
+    const q = { x: (p.x - VIEW_W / 2) / f + VIEW_W / 2, y: (p.y - dy) / f };
+    const b = g.buttons.find((b) => q.x >= b.x && q.x <= b.x + b.w && q.y >= b.y && q.y <= b.y + b.h);
     if (b?.action === 'retry') g.reset();
     if (b?.action === 'levels') g.onLevels?.();
     if (b?.action === 'next') g.onNext?.();

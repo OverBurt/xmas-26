@@ -21,13 +21,13 @@
   ],
   "previewDist": 31,
   "stars": [
-    3200,
+    3250,
     5700,
     8600
   ],
   "camera": {
-    "aimCenter": 12,
-    "aimW": 26,
+    "aimCenter": 10,
+    "aimW": 22,
     "aimMaxW": 43
   },
   "forts": [
@@ -171,7 +171,7 @@
       "lean": 0.35,
       "door": {
         "h": 1.9,
-        "points": 1300
+        "points": 1350
       },
       "windows": [
         {
@@ -233,7 +233,7 @@
     },
     {
       "x": 49.5,
-      "pose": "bruca",
+      "pose": "fianco",
       "facing": 1
     }
   ],

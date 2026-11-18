@@ -459,6 +459,28 @@ Punti dalle difficoltà misurate (`sim:score`, neve compresa), stelle da partite
 - Storia ripulita dai dati personali (autore e committer di tutti i commit = OverBurt con l'indirizzo noreply di GitHub), repository ricreato per eliminare le copie vecchie, poi reso **pubblico**.
 - **GitHub Pages**: https://overburt.github.io/xmas-26/, pubblicato da GitHub Actions (`.github/workflows/pages.yml`) a ogni push su `main`, con l'indirizzo pubblico per le anteprime impostato nel workflow.
 
+### Revisione dopo la prova su telefono: issue #1 (18/11/2026)
+Richieste dell'utente raccolte nella issue GitHub #1, fatte tutte e pubblicate la sera stessa.
+- **Pagina di avvio**: stato `titolo` del gioco. La scena del livello è ferma nell'inquadratura di mira; sopra, disegnati nel canvas, filo di lucine, titolo dorato «Biglietto d'auguri» con l'etichetta GAME, sottotitolo e pulsante PLAY che pulsa; il gufo sulla luna guarda PLAY. Un tocco, Invio o spazio fanno partire la regia. Con `?level` o `?debug` si salta. I pulsanti rimasti (audio, condividi, installa, schermo intero) vanno in basso a destra per non coprire la luna.
+- **HUD**: sul telefono niente nome del livello; durante mira e lancio spariscono i pulsanti e il suggerimento sotto i punti. Livelli e Reset sono icone; nuovo pulsante Installa, visibile solo se il browser offre l'installazione e il gioco non è già installato.
+- **Mira più vicina**: vista di 22 m (23 nel terzo livello) invece di 26, bordo sinistro sempre a −1 m: fionda e pacchi sono il 18% più grandi. Tendendo l'elastico la vista si allarga come prima fino a `aimMaxW`.
+- **Suono della neve**: «pòf» ovattato (colpetto grave con attacco dolce + sbuffo scuro e corto), valori in `AUDIO.neve`. Non ascoltato dall'agente.
+- **Icona e banner**: icona = gufo sulla punta del pino contro la luna (`public/icon.svg`, PNG con `npm run icone`); banner `og.png` = fotografia della pagina di avvio (`npm run og`).
+- **Pagina dei livelli**: pannello come quello finale, una scheda per livello con l'anteprima della scena (`public/livelli/<id>.webp`, `npm run anteprime`), numero, nome, stelle e record.
+- **Finestra «Buone Feste»**: quando i pulsanti in alto la toccherebbero scende sotto di loro e, se serve, si rimpicciolisce (`view.panelFit`); i pulsanti restano visibili. Sull'S21 a schermo intero scende di 70 px logici senza rimpicciolirsi.
+- **Terzo livello**: l'ultima casa era tagliata in alto dalla vista di volo (cima a 13,5 m con vista alta 13,5). Rilievo da 5 a 4 m e casa cambiata in baita (3,9 + 2,3 m): cima a circa 11,6 m. Livello allungato a x 54,5 per le renne.
+- **Primo piano**: ritrovato nell'artefatto di design «Notte di velluto» (piano 1,30, facoltativo, lì sconsigliato perché copre la fascia dove poggiano slitta, fionda e porte). Fatto con cumuli, cespugli e qualche steccato lungo il bordo inferiore; niente davanti a slitta e fionda nell'inquadratura di mira; spento nella qualità bassa.
+- **Renna di fianco**: non bruca più. Sta di profilo a testa alta, guarda dritto e ogni 8 s gira la testa verso la camera per 2,6 s; sagoma di collisione con la testa alta. Spaventata guarda in camera con gli occhi sbarrati.
+- **Punti e stelle rigenerati** (casa e renna cambiate). Bosco: A porta 1300 → 1350, prima stella 3250, le altre invariate (5700/8600). Vetta: A 2300/3000/1400, B 1800/3000/3000, C 2400/3000/2000; stelle 3200/6700/10000 (prima 3250/5200/8600). Giocatore simulato medio sulla Vetta: 3,06 consegne, mediana 6700, senza stelle 4%, tre stelle 9%: **ora il terzo livello rende più punti del secondo** (mediana 5679, 2,47 consegne), perché la terza casa è più bassa e più larga.
+- **Ritocchi chiesti durante la prova** (stessa sera):
+  - pagina dei livelli aperta dal pannello finale: si richiudeva subito, perché il clic del rilascio cadeva sulla pagina appena comparsa; ora i clic entro 400 ms dall'apertura si ignorano;
+  - pacchi sulla slitta più distanziati (20 cm invece di 8; pianale utile 3,6 m, disegno invariato);
+  - durante il livello i pulsanti sono raccolti dietro un pulsante con tre pallini verticali: toccandolo entrano animati uno dopo l'altro, con una piccola etichetta sotto ogni icona; si richiudono ritoccandolo o toccando la scena. Sulla pagina di avvio e nel pannello finale restano tutti in vista;
+  - tolto il riquadro di evidenziazione del tocco di Chrome; al tocco l'icona diventa dorata con un bagliore;
+  - dopo `TURN.inattivita` = 120 s senza gesti dentro un livello si torna alla pagina di avvio (non con `?level` o `?debug`); provato sull'S21 con 60 s;
+  - regia d'apertura: 1 s fermi sulle case col nome del livello (`INTRO.attesa`), poi 6,2 s di movimento con partenza lentissima (3,5% del percorso nei primi 2 s, 61% al quarto), nome visibile fino a circa 4,8 s.
+- **Verifiche**: `npm test` 9 su 9, build riuscita. Chrome desktop: pagina di avvio, mira, pagina dei livelli, renna, terza casa. S21: pagina di avvio (anche a schermo intero), mira con pulsanti e suggerimento nascosti, finestra finale sotto i pulsanti, terza casa intera in volo; disegno 4,1–4,3 ms a scena ferma sul terzo livello, 60 FPS in volo (non a schermo intero, canvas 1194×560). Non verificati: suoni, pulsante Installa premuto davvero, iPhone.
+
 ## 8. Decisioni prese (17/11/2026)
 
 ### Livelli: 3, difficoltà crescente

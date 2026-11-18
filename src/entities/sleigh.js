@@ -1,8 +1,8 @@
 import { GIFTS } from '../config.js';
 
 const BED_Y = 0.75; // altezza del pianale (m)
-const BED_W = 3.4; // larghezza utile del pianale
-const SPACING = 0.08; // spazio tra i pacchi sul pianale (solo disposizione, non è il GAP della fisica)
+const BED_W = 3.6; // larghezza utile del pianale (la scocca disegnata arriva a 3.9 m dal bordo sinistro)
+const SPACING = 0.2; // spazio tra i pacchi sul pianale: larghi, per prenderli bene col dito (solo disposizione, non è il GAP della fisica)
 
 /**
  * Slitta con i pacchi ancora da lanciare. I pacchi qui non sono corpi fisici:

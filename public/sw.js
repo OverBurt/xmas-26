@@ -5,7 +5,7 @@
 //   si usa la copia in cache;
 // - gli altri file (hanno il nome con l'impronta del contenuto) si servono dalla cache e si aggiornano in sottofondo.
 // Cambiare VERSIONE butta via le cache vecchie.
-const VERSIONE = 'xmas26-v2';
+const VERSIONE = 'xmas26-v3';
 const BASE = self.registration.scope;
 
 self.addEventListener('install', (e) => {
@@ -16,7 +16,8 @@ self.addEventListener('install', (e) => {
       await cache.put(BASE, pagina.clone());
       const html = await pagina.text();
       const citati = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)].map((m) => new URL(m[1], BASE).href).filter((u) => u.startsWith(BASE));
-      const altri = ['audio/musica.m4a', 'icon-512.png'].map((p) => new URL(p, BASE).href);
+      // in più: musica, icona grande e le anteprime dei livelli (pagina di scelta), che la pagina non cita
+      const altri = ['audio/musica.m4a', 'icon-512.png', 'livelli/borgo-addormentato.webp', 'livelli/bosco-di-cristallo.webp', 'livelli/vetta-del-gufo.webp'].map((p) => new URL(p, BASE).href);
       await Promise.all([...new Set([...citati, ...altri])].map((u) => cache.add(u).catch(() => {})));
       self.skipWaiting();
     })(),

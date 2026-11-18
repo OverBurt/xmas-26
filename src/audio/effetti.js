@@ -5,6 +5,8 @@
  * @typedef {import('./motore.js').Motore} Motore
  */
 
+import { AUDIO } from '../config.js';
+
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const rnd = (a, b) => a + Math.random() * (b - a);
 /** Frequenza di una nota MIDI. */
@@ -181,17 +183,25 @@ export function lancio(m, velocita) {
   filtro.frequency.exponentialRampToValueAtTime(600, t + dur);
 }
 
-/** Neve che si rompe: tonfo morbido (sinusoide grave) + fruscio filtrato basso. vol 0–1, grande 0–1 (area). */
+/**
+ * Neve che si rompe: un "pòf" ovattato. Una "p" morbida (colpetto grave che scende di tono, attacco dolce, niente
+ * schiocco) e subito uno sbuffo d'aria corto e scuro (rumore passa-basso che si chiude: la "f"). Valori in AUDIO.neve.
+ * vol 0–1, grande 0–1 (area).
+ */
 export function neve(m, vol, grande) {
   if (!m.voce('rottura-neve', 0.45)) return;
+  const N = AUDIO.neve;
   const t = m.t + rnd(0, 0.015);
-  const dur = 0.18 + grande * 0.3;
-  const g = inviluppo(m, m.sfx, t, 0.5 * vol, 0.004, dur);
-  const { filtro } = rumore(m, t, dur, g, 'lowpass', 900 + rnd(-150, 250) - grande * 300, 0.8);
-  filtro.frequency.exponentialRampToValueAtTime(200, t + dur);
-  const th = inviluppo(m, m.sfx, t, 0.45 * vol, 0.003, 0.12 + grande * 0.12);
-  const o = oscillatore(m, 'sine', 120 - grande * 40, t, 0.25, th);
-  o.frequency.exponentialRampToValueAtTime(45, t + 0.2);
+  // la "pò": sinusoide che scende, attacco morbido
+  const th = inviluppo(m, m.sfx, t, N.colpo * vol, N.attacco, 0.09 + grande * 0.08);
+  const f0 = N.tono[0] - grande * 35 + rnd(-10, 10);
+  const o = oscillatore(m, 'sine', f0, t, 0.22, th);
+  o.frequency.exponentialRampToValueAtTime(N.tono[1], t + 0.14);
+  // la "f": sbuffo scuro e breve, parte un attimo dopo
+  const dur = 0.12 + grande * 0.16;
+  const g = inviluppo(m, m.sfx, t + 0.012, N.sbuffo * vol, 0.03, dur);
+  const { filtro } = rumore(m, t + 0.012, dur + 0.03, g, 'lowpass', N.filtro[0] - grande * 150 + rnd(-60, 60), 0.5);
+  filtro.frequency.exponentialRampToValueAtTime(N.filtro[1], t + 0.012 + dur);
 }
 
 /** Pupazzo di neve che si separa: tonfo più grave e un "puff". */

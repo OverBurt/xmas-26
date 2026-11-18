@@ -38,7 +38,9 @@ import { deliver, checkDeliveries, totalScore, breakScore, crystals } from './sc
  *  'fine'      riepilogo (vedi scoring.summarize)    fine livello
  * Gli ascoltatori sopravvivono a reset() e setLevel().
  *
- * Callback rimaste, gestite da main.js: onLevels() (pulsante "Livelli" del pannello finale) e onNext() (pulsante
+ * Stato in più, fuori dal turno: 'titolo' (pagina di avvio, vedi showTitle; un tocco chiama onPlay()).
+ *
+ * Callback rimaste, gestite da main.js: onPlay() (tocco sulla pagina di avvio), onLevels() (pulsante "Livelli" del pannello finale) e onNext() (pulsante
  * "Avanti", presente se `hasNext` è vero e si è presa almeno una stella).
  */
 export class Game extends Emitter {
@@ -114,6 +116,17 @@ export class Game extends Emitter {
     startIntro(this);
   }
 
+  /**
+   * Pagina di avvio: il livello è costruito e fermo nell'inquadratura di mira, senza HUD; sopra si disegna il
+   * titolo col pulsante PLAY (hudDraw.drawTitle). Un tocco chiama `onPlay` (main.js), che fa partire la regia.
+   */
+  showTitle() {
+    this.intro = null;
+    this.setState('titolo');
+    this.aimView();
+    this.camera.snap();
+  }
+
   endIntro() {
     endIntro(this);
   }
@@ -175,7 +188,7 @@ export class Game extends Emitter {
    */
   get fermo() {
     if (this.mode || this.carry || this.sling.loadAnim) return false;
-    if (this.state !== 'ready' && !(this.state === 'end' && this.stateTime > 3)) return false;
+    if (this.state !== 'ready' && this.state !== 'titolo' && !(this.state === 'end' && this.stateTime > 3)) return false;
     const c = this.camera;
     if (Math.abs(c.cx - c.tcx) > 0.02 || Math.abs(c.viewW - c.tViewW) > 0.02) return false;
     if (this.floaters.length || this.puffs.length || this.particles.list.length) return false;

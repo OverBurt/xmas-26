@@ -2,7 +2,7 @@ import { REINDEER } from '../config.js';
 
 /**
  * Disegno provvisorio delle renne (dalla direzione grafica A "Notte di velluto"): contorno da fumetto,
- * due pose ('bruca' di fianco, 'fronte' in camera) e la reazione allo spavento quando vengono colpite
+ * due pose ('fianco' di profilo che ogni tanto si gira, 'fronte' in camera) e la reazione allo spavento quando vengono colpite
  * (balzo, testa alzata, occhi sbarrati, orecchie dritte, corna che tremano, "!").
  * Si disegna in uno spazio locale in "pixel" (K per metro, y verso il basso) con l'origine ai piedi della renna.
  */
@@ -71,13 +71,23 @@ function occhio(c, p, r, gx, gy, chiuso, sbarrato) {
   c.fill();
 }
 
-/** Renna che bruca, di fianco; ogni tanto alza il muso verso di noi. `paura` = avanzamento dello spavento (0..1) o null. */
-function bruca(c, r, t, paura, trema) {
+/**
+ * Renna di fianco, a testa alta: guarda dritto davanti a sé e ogni tanto gira la testa verso la camera
+ * (REINDEER.sguardo: ciclo, durata dello sguardo in camera, tempo del giro). Il giro è un'unica testa i cui pezzi
+ * (muso, occhi, orecchie, corna) scivolano dalla vista di profilo a quella di fronte: `giro` 0 = profilo, 1 = in camera.
+ * `paura` = avanzamento dello spavento (0..1) o null: spaventata guarda in camera con gli occhi sbarrati.
+ */
+function fianco(c, r, t, paura, trema) {
   const v = r.facing;
   const P = (dx, dy) => [v * dx * K, -dy * K];
-  const alza = paura !== null ? 1 : Math.max(0, Math.sin(t * 0.55)) ** 3;
+  const sb = paura !== null;
+  const G = REINDEER.sguardo;
+  const u = (t + r.x * 1.37) % G.ciclo; // ogni renna ha il suo ritmo
+  const lin = Math.min(1, Math.max(0, Math.min((u - (G.ciclo - G.camera)) / G.giro, (G.ciclo - u) / G.giro)));
+  const giro = sb ? 1 : lin * lin * (3 - 2 * lin);
+  const mix = (a, b) => a + (b - a) * giro;
   const chiuso = t % 3.7 < 0.13;
-  const coda = paura !== null ? Math.sin(t * 30) * 0.6 : t % 5 < 1.3 ? Math.sin(t * 16) * 0.5 : 0;
+  const coda = sb ? Math.sin(t * 30) * 0.6 : t % 5 < 1.3 ? Math.sin(t * 16) * 0.5 : 0;
   for (const [a, b] of [[-0.42, -0.47], [0.4, 0.47]]) {
     arto(c, [P(a, 0.8), P(b, 0.1)], S(0.11), COL.pelo2);
     arto(c, [P(b, 0.09), P(b, 0.04)], S(0.13), COL.zoccolo);
@@ -94,35 +104,39 @@ function bruca(c, r, t, paura, trema) {
     arto(c, [P(a, 0.82), P(b, 0.1)], S(0.12), COL.pelo);
     arto(c, [P(b, 0.09), P(b, 0.04)], S(0.14), COL.zoccolo);
   }
-  const H = [1.3 - 0.12 * alza, 0.38 + 0.5 * alza];
-  arto(c, [P(0.6, 1.1), P(0.95, 0.95 + 0.12 * alza), P(H[0] - 0.14, H[1] + 0.14)], S(0.28), COL.pelo);
-  arto(c, [P(0.6, 0.86), P(0.84, 1.1)], S(0.13), COL.sciarpa);
-  arto(c, [P(0.64, 0.9), P(0.6, 0.62)], S(0.11), COL.sciarpa);
+  // collo dritto e testa alta (respira appena)
+  const H = [1.0, 1.76 + 0.015 * Math.sin(t * 1.3 + r.x)];
+  arto(c, [P(0.55, 1.12), P(0.78, 1.42), P(H[0] - 0.1, H[1] - 0.2)], S(0.28), COL.pelo);
+  arto(c, [P(0.5, 1.3), P(0.86, 1.14)], S(0.13), COL.sciarpa);
+  arto(c, [P(0.6, 1.2), P(0.55, 0.86)], S(0.11), COL.sciarpa);
   const Q = (dx, dy) => P(H[0] + dx + trema, H[1] + dy);
-  corno(c, Q, 0.16, 0.2, 0.75, 0.8);
-  corno(c, Q, -0.02, 0.22, 0.75, 0.9);
-  // orecchio: dritto se spaventata
-  ovale(c, Q(-0.27, paura !== null ? 0.26 : 0.16), S(0.14), S(0.07), COL.pelo2, v * (paura !== null ? -1.1 : 0.7));
-  ovale(c, Q(0, 0), S(0.31), S(0.26), COL.pelo);
-  ovale(c, Q(0.18, -0.1), S(0.2), S(0.15), COL.crema);
-  ovale(c, Q(0.31, -0.08), S(0.075), S(0.055), COL.naso);
-  const sb = paura !== null;
-  occhio(c, Q(-0.03, 0.07), S(0.078), v * 0.15, -0.3, chiuso, sb);
-  occhio(c, Q(0.16, 0.09), S(0.07), v * 0.15, -0.3, chiuso, sb);
-  if (alza < 0.5) {
-    c.strokeStyle = '#7fb38a';
-    c.lineWidth = Math.max(1.5, S(0.035));
+  // corna: di profilo tutte e due piegate all'indietro, di fronte aperte ai lati
+  corno(c, Q, mix(-0.14, -0.15), 0.2, mix(-0.5, -1), 0.85);
+  corno(c, Q, mix(0.02, 0.15), 0.21, mix(-0.5, 1), 0.9);
+  // orecchie: una all'indietro di profilo, due ai lati di fronte (dritte se spaventata)
+  if (giro > 0.05) ovale(c, Q(mix(0.1, 0.38), mix(0.16, sb ? 0.24 : 0.12)), S(0.15 * giro), S(0.075 * giro), COL.pelo2, v * mix(-0.3, sb ? -1.2 : -0.5));
+  ovale(c, Q(mix(-0.25, -0.38), mix(0.15, sb ? 0.24 : 0.1)), S(0.15), S(0.075), COL.pelo2, v * mix(0.7, sb ? 1.2 : 0.6));
+  ovale(c, Q(0, 0), S(0.31), S(0.27), COL.pelo);
+  const muso = [mix(0.2, 0), mix(-0.08, -0.14)];
+  ovale(c, Q(...muso), S(mix(0.2, 0.26)), S(mix(0.15, 0.19)), COL.crema);
+  if (sb) ovale(c, Q(muso[0], muso[1] - 0.07), S(0.065), S(0.08), '#3a1d2a'); // bocca a "O"
+  else if (giro > 0.6) { // sorriso, solo quando guarda in camera
+    c.strokeStyle = COL.contorno;
+    c.lineWidth = LW;
     c.lineCap = 'round';
-    for (const [dx, an] of [[0.2, -0.3], [0.27, 0.1], [0.34, 0.4]]) {
-      const p = Q(dx, -0.2);
-      const q = Q(dx + an * 0.2, -0.36);
-      c.beginPath();
-      c.moveTo(...p);
-      c.lineTo(...q);
-      c.stroke();
-    }
+    c.globalAlpha = (giro - 0.6) / 0.4;
+    c.beginPath();
+    c.moveTo(...Q(-0.12, muso[1] - 0.06));
+    c.quadraticCurveTo(...Q(0, muso[1] - 0.15), ...Q(0.12, muso[1] - 0.06));
+    c.stroke();
+    c.globalAlpha = 1;
   }
-  return Q(0, 0.75); // punto sopra la testa (per il "!")
+  ovale(c, Q(mix(0.34, 0), mix(-0.05, -0.06)), S(mix(0.075, 0.1)), S(mix(0.055, 0.07)), COL.naso);
+  // occhi: uno solo di profilo (guarda avanti), due di fronte (guardano noi)
+  const gx = v * mix(0.3, 0);
+  if (giro > 0.3) occhio(c, Q(mix(0.24, 0.14), mix(0.08, 0.1)), S(0.09 * Math.min(1, (giro - 0.3) / 0.5)), gx, 0.05, chiuso, sb);
+  occhio(c, Q(mix(0.04, -0.14), mix(0.08, 0.1)), S(mix(0.085, 0.1)), gx, 0.05, chiuso, sb);
+  return Q(0, 0.95); // punto sopra la testa (per il "!")
 }
 
 /** Renna di fronte, buffa: occhioni un po' strabici, lingua di lato, lucine tra le corna. */
@@ -206,10 +220,10 @@ export function drawReindeer(ctx, r, t) {
   // ombra a terra (resta giù mentre la renna salta)
   ctx.fillStyle = 'rgba(40,50,110,0.22)';
   ctx.beginPath();
-  ctx.ellipse(0, 0, S(r.pose === 'bruca' ? 0.95 : 0.6) * (1 - balzo * 0.8), S(0.1), 0, 0, TAU);
+  ctx.ellipse(0, 0, S(r.pose === 'fianco' ? 0.95 : 0.6) * (1 - balzo * 0.8), S(0.1), 0, 0, TAU);
   ctx.fill();
   ctx.translate(0, -S(balzo));
-  const sopra = r.pose === 'bruca' ? bruca(ctx, r, t, paura, trema) : fronte(ctx, r, t, paura, trema);
+  const sopra = r.pose === 'fianco' ? fianco(ctx, r, t, paura, trema) : fronte(ctx, r, t, paura, trema);
   if (paura !== null && paura < 0.85) {
     // "!" sopra la testa
     ctx.font = `800 ${S(0.55)}px system-ui, sans-serif`;

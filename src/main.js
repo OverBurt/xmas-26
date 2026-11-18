@@ -1,12 +1,13 @@
 import { Box, Vec2 } from 'planck';
-import { VIEW_W, VIEW_H, MAX_DPR, SLING, IDLE_DIV } from './config.js';
+import { VIEW_W, VIEW_H, MAX_DPR, SLING, IDLE_DIV, TURN } from './config.js';
 import { startLoop } from './core/loop.js';
 import { attachInput } from './core/input.js';
 import { setupFullscreen } from './core/fullscreen.js';
 import { setupShare } from './core/share.js';
+import { setupInstall } from './core/install.js';
 import { Game } from './game/game.js';
 import { drawScene } from './render/sceneDraw.js';
-import { setHudScale } from './render/view.js';
+import { setHudScale, setUiBox } from './render/view.js';
 import { quality, initQuality, sampleQuality } from './render/quality.js';
 import { LEVELS, findLevel } from './game/levels/index.js';
 import { avviaAudio } from './audio/regia.js';
@@ -42,7 +43,10 @@ function resize() {
   setHudScale(s); // telefoni: HUD ed etichette più grandi
   // Su un telefono 1 px CSS vale ~1.6 px logici: i pulsanti occupano più spazio nella vista logica
   const fr = frame.getBoundingClientRect();
-  controlsBottom = (controls.getBoundingClientRect().bottom - fr.top) / s;
+  const cr = controls.getBoundingClientRect();
+  controlsBottom = (cr.bottom - fr.top) / s;
+  setUiBox((cr.left - fr.left) / s, controlsBottom); // il pannello di fine livello sta alla larga dai pulsanti
+  frame.style.setProperty('--u', `${s}px`); // unità delle pagine DOM proporzionate alla scena (selettore dei livelli)
 }
 window.addEventListener('resize', resize);
 resize();
@@ -53,6 +57,17 @@ setupFullscreen({
 });
 
 setupShare({ button: document.getElementById('share-btn'), avviso: document.getElementById('avviso') });
+setupInstall({
+  button: document.getElementById('installa-btn'),
+  avviso: (msg) => {
+    const a = document.getElementById('avviso');
+    a.textContent = msg;
+    a.hidden = false;
+    setTimeout(() => (a.hidden = true), 3200);
+  },
+});
+// i pulsanti compaiono e scompaiono (installa, schermo intero): l'ingombro va rimisurato
+new MutationObserver(() => resize()).observe(controls, { attributes: true, subtree: true, attributeFilter: ['hidden'] });
 
 // ---------- Gioco e livelli ----------
 const store = {
@@ -90,32 +105,73 @@ function vaiAlLivello(l) {
   game.setLevel(l);
 }
 game.hasNext = LEVELS.indexOf(game.level) < LEVELS.length - 1;
+// Pagina di avvio (titolo e PLAY): all'apertura normale del gioco; con ?level o ?debug si entra subito nel livello
+// (prove, strumenti). Un tocco, Invio o la barra spaziatrice fanno partire la regia d'apertura.
+const conTitolo = !params.has('level') && !DEBUG;
+if (conTitolo) game.showTitle();
+// Inattività: dopo TURN.inattivita secondi senza tocchi, clic o tasti dentro un livello si torna alla pagina di avvio
+// (il livello riparte da capo). Vale solo quando la pagina di avvio esiste, cioè non nelle prove con ?level o ?debug.
+let ultimoGesto = performance.now();
+for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel']) {
+  window.addEventListener(ev, () => { ultimoGesto = performance.now(); }, { capture: true, passive: true });
+}
+function controllaInattivita() {
+  if (!conTitolo || game.state === 'titolo') return;
+  if (game.state === 'flight' || game.state === 'settle') ultimoGesto = performance.now(); // un tiro in corso non è inattività
+  if (performance.now() - ultimoGesto < TURN.inattivita * 1000) return;
+  closeLevels();
+  game.reset();
+  game.showTitle();
+  stelleAvvio.n = stelleTotali(store.get('xmas-best', {}));
+}
+game.onPlay = () => game.startIntro();
 game.onNext = () => {
   const i = LEVELS.indexOf(game.level);
   if (i >= 0 && i < LEVELS.length - 1) vaiAlLivello(LEVELS[i + 1]);
 };
 
 const levelsEl = document.getElementById('levels');
+/**
+ * Istante di apertura della pagina dei livelli. Dal pannello finale si apre alla pressione del dito sul canvas:
+ * il clic che il browser manda al rilascio cadrebbe sulla pagina appena comparsa e la chiuderebbe (o sceglierebbe
+ * un livello). I clic arrivati entro APERTURA_MS dall'apertura si ignorano.
+ */
+let apertoIl = -Infinity;
+const APERTURA_MS = 400;
 function openLevels() {
   const best = store.get('xmas-best', {});
   const list = document.getElementById('level-list');
-  levelsEl.querySelector('h2').textContent = `Scegli il livello · ★ ${stelleTotali(best)} su ${LEVELS.length * 3}`;
+  levelsEl.querySelector('.levels-stelle').innerHTML = `Stelle raccolte: <b>★ ${stelleTotali(best)}</b> su ${LEVELS.length * 3}`;
+  const el = (tag, cls, txt) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt !== undefined) e.textContent = txt;
+    return e;
+  };
   list.replaceChildren(
-    ...LEVELS.map((l) => {
-      const b = document.createElement('button');
+    ...LEVELS.map((l, i) => {
+      // scheda: anteprima della scena (public/livelli/<id>.webp, fatta con `npm run anteprime`), numero, nome, stelle e record
+      const b = el('button', l.id === game.level.id ? 'current' : '');
       b.dataset.level = l.id;
-      if (l.id === game.level.id) b.className = 'current';
-      const name = document.createElement('span');
-      name.textContent = l.name;
-      const rec = document.createElement('span');
-      rec.className = 'best';
+      const [nome, sotto] = l.name.split(' · ');
+      const img = el('img');
+      img.src = `${import.meta.env.BASE_URL}livelli/${l.id}.webp`;
+      img.alt = `Anteprima del livello ${nome}`;
+      img.decoding = 'async';
+      const dati = el('span', 'dati');
       const r = best[l.id];
-      rec.textContent = r ? `${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}  ${r.score}` : '—';
-      b.append(name, rec);
+      const rec = el('span', 'best');
+      const stelle = el('span', 'stelle');
+      stelle.innerHTML = `${'★'.repeat(r?.stars || 0)}<i>${'★'.repeat(3 - (r?.stars || 0))}</i>`;
+      stelle.setAttribute('aria-label', `${r?.stars || 0} stelle su 3`);
+      rec.append(stelle, el('span', 'punti', r ? r.score.toLocaleString('it-IT') : ''));
+      dati.append(el('span', 'nome', nome), el('span', 'sotto', sotto || ''), rec);
+      b.append(img, el('span', 'numero', String(i + 1)), dati);
       return b;
     }),
   );
   levelsEl.hidden = false;
+  apertoIl = performance.now();
 }
 function closeLevels() {
   levelsEl.hidden = true;
@@ -123,6 +179,7 @@ function closeLevels() {
 game.onLevels = openLevels;
 
 levelsEl.addEventListener('click', (e) => {
+  if (performance.now() - apertoIl < APERTURA_MS) return; // clic dello stesso tocco che ha aperto la pagina
   const btn = e.target.closest('button');
   if (!btn) {
     if (e.target === levelsEl) closeLevels(); // tocco fuori dal pannello
@@ -165,8 +222,20 @@ function stress() {
   }
 }
 
+/** Apre o richiude il gruppo dei pulsanti raccolto dietro i tre pallini (durante il livello). */
+const menuBtn = document.getElementById('menu-btn');
+function apriPulsanti(aperto) {
+  if (controls.classList.contains('aperto') === aperto) return;
+  controls.classList.toggle('aperto', aperto);
+  menuBtn.setAttribute('aria-expanded', String(aperto));
+  resize();
+}
+menuBtn.addEventListener('click', () => apriPulsanti(!controls.classList.contains('aperto')));
+canvas.addEventListener('pointerdown', () => apriPulsanti(false)); // un tocco sulla scena li richiude
+
 controls.addEventListener('click', (e) => {
-  const action = e.target.dataset?.action;
+  const action = e.target.closest('button')?.dataset.action; // i pulsanti a icona hanno un SVG dentro
+  if (action === 'reset' || action === 'levels') apriPulsanti(false);
   if (action === 'reset') game.reset();
   if (action === 'levels') openLevels();
   if (action === 'wake') wakeAll();
@@ -174,6 +243,10 @@ controls.addEventListener('click', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
+  if (game.state === 'titolo') {
+    if (e.key === 'Enter' || e.key === ' ') game.onPlay();
+    return;
+  }
   if (e.key === 'r') game.reset();
   if (e.key === 'l') (levelsEl.hidden ? openLevels() : closeLevels());
   if (e.key === 'Escape') closeLevels();
@@ -183,6 +256,11 @@ window.addEventListener('keydown', (e) => {
 
 // ---------- Loop ----------
 let hudTimer = 0;
+let pulsantiVia = false;
+let inTitolo = false;
+let inGioco = false;
+/** Stelle già prese, mostrate sulla pagina di avvio. */
+const stelleAvvio = { n: stelleTotali(store.get('xmas-best', {})), max: LEVELS.length * 3 };
 /** Misure del disegno (debug e prove): medie da azzerare a mano con `xmas.perf.reset()`. */
 const perf = {
   frames: 0,
@@ -201,10 +279,26 @@ startLoop({
   idle: () => game.fermo,
   render(alpha, elapsed, stats) {
     game.frame(elapsed);
+    controllaInattivita();
     audio.aggiorna();
     ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
     const t0 = performance.now();
-    drawScene(ctx, game, alpha, { debug: DEBUG, hudTop: controlsBottom, puntatore });
+    // durante la mira e il lancio i pulsanti spariscono; sulla pagina di avvio restano solo audio, condividi, installa
+    const via = game.mode === 'aim' || game.state === 'flight' || game.state === 'settle';
+    if (via !== pulsantiVia) controls.classList.toggle('via', (pulsantiVia = via));
+    // durante il livello i pulsanti stanno raccolti dietro i tre pallini; sulla pagina di avvio e a fine livello sono tutti in vista
+    const gioco = game.state !== 'titolo' && game.state !== 'end';
+    if (gioco !== inGioco) {
+      controls.classList.toggle('gioco', (inGioco = gioco));
+      apriPulsanti(false);
+      resize();
+    }
+    const titolo = game.state === 'titolo';
+    if (titolo !== inTitolo) {
+      frame.classList.toggle('titolo', (inTitolo = titolo));
+      resize();
+    }
+    drawScene(ctx, game, alpha, { debug: DEBUG, hudTop: controlsBottom, puntatore, stelle: titolo ? stelleAvvio : null });
     const ms = performance.now() - t0;
     perf.frames++;
     perf.renderMs += ms;

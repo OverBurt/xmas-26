@@ -37,11 +37,14 @@ export function startIntro(g) {
 export function updateIntro(g, dt) {
   const it = g.intro;
   it.t += dt;
-  if (it.t >= it.duration) {
+  const tm = it.t - INTRO.attesa; // prima si resta fermi sulle case col nome del livello
+  if (tm <= 0) return;
+  if (tm >= it.duration) {
     endIntro(g);
     return;
   }
-  const k = easeInOut(it.t / it.duration);
+  // partenza molto lenta (il tempo è elevato a INTRO.partenza), poi accelera e rallenta di nuovo in arrivo
+  const k = easeInOut((tm / it.duration) ** INTRO.partenza);
   const bez = (a, b, c) => (1 - k) * (1 - k) * a + 2 * (1 - k) * k * b + k * k * c;
   g.camera.cx = bez(it.from.cx, it.via.cx, it.to.cx);
   g.camera.viewW = bez(it.from.w, it.via.w, it.to.w);

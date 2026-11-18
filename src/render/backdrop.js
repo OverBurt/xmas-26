@@ -10,7 +10,7 @@ const ORIZ = VIEW_H + CAMERA.bottom * PPM_REF;
  * Sfondo in parallasse, pre-renderizzato una volta per livello su canvas offscreen:
  * cielo con luna e stelle (fermo), montagne lontane e medie, profilo della città, pini alti.
  * Ogni piano ha un gradiente verticale che scurisce salendo: le sagome scure del piano davanti risaltano.
- * A ogni frame sono 5 drawImage più le poche stelle che tremolano.
+ * A ogni frame sono 5 drawImage più le poche stelle che tremolano; in più il primo piano davanti alla scena (drawFront).
  */
 export class Backdrop {
   /**
@@ -61,6 +61,19 @@ export class Backdrop {
     };
     const luna = sulPiano(GFX.parallax.pini, GFX.moon.x, GFX.moon.y);
     add('pini', (c, W, lx) => piniAlti(c, W, lx(rif.slitta), lx(rif.paeseDa), luna));
+    // Primo piano, davanti alla scena (non nella qualità bassa): una striscia bassa ancorata al bordo inferiore,
+    // che scorre più in fretta del piano di gioco. Nell'inquadratura di mira resta libero il tratto di slitta e fionda.
+    this.front = null;
+    if (tier.front) {
+      const p = GFX.parallax.primo;
+      const W = larghezza(bounds, p);
+      const [cv, c] = makeCanvas(W, p.alto, k);
+      const s = 1 + (rif.ppm / PPM_REF - 1) * p.zoom;
+      const lx = (wx) => ((wx - rif.left) * rif.ppm + (rif.left - bounds.minX) * rif.ppm * p.f) / s;
+      primoPiano(c, W, p.alto, lx(rif.liberoDa), lx(rif.liberoA));
+      this.front = { cv, W, f: p.f, zoom: p.zoom, alto: p.alto };
+      toBitmap(this.front);
+    }
     const R = seeded(2024);
     this.lumi = Array.from({ length: 16 }, () => ({ x: R() * VIEW_W, y: 20 + R() * 250, r: 2.6 + R() * 2.6, a: 0.7 + R() * 1.1, c: 0.35 + R() * 0.5, p: R() * TAU, q: R() * TAU, s: R() * TAU }));
   }
@@ -91,6 +104,15 @@ export class Backdrop {
       ctx.drawImage(L.cv, -dx * L.f, hy - ORIZ * s, L.W * s, VIEW_H * s);
       if (L.gufo) this.pupille(ctx, L.gufo, -dx * L.f, hy - ORIZ * s, s, sguardo);
     }
+  }
+
+  /** Primo piano: da disegnare dopo la scena di gioco (una drawImage). */
+  drawFront(ctx, camera) {
+    const L = this.front;
+    if (!L) return;
+    const ppm = camera.ppm;
+    const s = 1 + (ppm / PPM_REF - 1) * L.zoom;
+    ctx.drawImage(L.cv, -(camera.x - this.bounds.minX) * ppm * L.f, VIEW_H - L.alto * s, L.W * s, L.alto * s);
   }
 
   /**
@@ -527,6 +549,79 @@ function piniAlti(c, W, xs, xa, luna) {
   const u = G.alto / luna.s / 34;
   gufo(c, xl, punta, G.alto / luna.s);
   return { gufo: { x: xl, y: punta - 24 * u, u } }; // centro degli occhi (px del piano): le pupille si disegnano a ogni frame
+}
+
+/**
+ * Primo piano (dall'anteprima della direzione A, piano 1,30): cumuli di neve bassi in ombra azzurra, qualche
+ * cespuglio innevato e qualche paletto di steccato, appoggiati al bordo inferiore dello schermo. Canvas largo W e
+ * alto H px; tra `da` e `a` (px del piano: slitta e fionda nell'inquadratura di mira) non si disegna niente.
+ * Tutto resta basso (GFX.parallax.primo.alto): davanti alla scena copre solo la fascia sotto il terreno e poco più.
+ */
+function primoPiano(c, W, H, da, a) {
+  const R = seeded(555);
+  const P = GFX.parallax.primo;
+  for (let x = R() * 200; x < W; x += 260 + R() * 420) {
+    const w = 110 + R() * 150;
+    const h = 20 + R() * 18;
+    const steccato = R() < P.steccati;
+    const cespuglio = R() < P.cespugli;
+    const bx = x + w + 60 + R() * 80;
+    if (x + w + 170 > da && x - 20 < a) continue; // tratto libero davanti a slitta e fionda
+    if (steccato) {
+      c.strokeStyle = '#3a2a55';
+      c.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const fx = x + w * 0.2 + i * 34;
+        c.lineWidth = 7;
+        c.beginPath();
+        c.moveTo(fx, H);
+        c.lineTo(fx + 2, H - 44 - (i % 2) * 5);
+        c.stroke();
+      }
+      c.lineWidth = 5;
+      c.beginPath();
+      c.moveTo(x + w * 0.2 - 12, H - 28);
+      c.lineTo(x + w * 0.2 + 80, H - 34);
+      c.stroke();
+      c.fillStyle = '#e6ecff';
+      for (let i = 0; i < 3; i++) {
+        c.beginPath();
+        c.ellipse(x + w * 0.2 + i * 34 + 2, H - 46 - (i % 2) * 5, 6, 3.5, 0, 0, TAU);
+        c.fill();
+      }
+    }
+    if (cespuglio) {
+      c.fillStyle = '#1b3f52';
+      for (const [dx, r] of [[-22, 20], [20, 18], [0, 27]]) {
+        c.beginPath();
+        c.arc(bx + dx, H - 6, r, 0, TAU);
+        c.fill();
+      }
+      c.fillStyle = '#b9c7ee';
+      c.beginPath();
+      c.ellipse(bx, H - 24, 30, 11, 0, 0, TAU);
+      c.fill();
+      c.fillStyle = '#e6ecff';
+      c.beginPath();
+      c.ellipse(bx, H - 27, 28, 9, 0, 0, TAU);
+      c.fill();
+    }
+    const g = c.createLinearGradient(0, H - h - 8, 0, H);
+    g.addColorStop(0, '#d5defa');
+    g.addColorStop(1, '#8a9ad8');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(x, H + 2);
+    c.bezierCurveTo(x + w * 0.2, H - h * 1.3, x + w * 0.55, H - h * 1.2, x + w * 0.7, H - h * 0.5);
+    c.bezierCurveTo(x + w * 0.82, H - h * 0.9, x + w * 0.95, H - h * 0.4, x + w, H + 2);
+    c.fill();
+    c.strokeStyle = '#f4f7ff';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(x + w * 0.1, H - h * 0.55);
+    c.bezierCurveTo(x + w * 0.25, H - h * 1.12, x + w * 0.45, H - h * 1.1, x + w * 0.6, H - h * 0.7);
+    c.stroke();
+  }
 }
 
 /**

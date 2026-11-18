@@ -1,5 +1,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Il riquadro evidenziato che Chrome su Android disegna attorno a ciò che si tocca: tolto ovunque (ogni pulsante ha il suo effetto) */
+* { -webkit-tap-highlight-color: transparent; }
+button:focus:not(:focus-visible) { outline: none; }
+
 html, body {
   width: 100%;
   height: 100%;
@@ -17,6 +21,7 @@ body { display: grid; place-items: center; }
 
 /* Riquadro con proporzioni da smartphone orizzontale: dimensioni impostate da JS */
 #frame {
+  --u: 1px; /* px dello schermo per px logico della scena (main.js) */
   position: relative;
   overflow: hidden;
   background: #0b1230;
@@ -53,7 +58,52 @@ canvas#game {
   right: 12px;
   display: flex;
   gap: 6px;
+  transition: opacity 0.2s;
 }
+/* Durante la mira e il lancio (e sulla pagina di avvio i pulsanti di gioco) i pulsanti spariscono: classe messa da main.js */
+#controls.via { opacity: 0; pointer-events: none; }
+#controls button[hidden] { display: none; }
+/* Durante il livello (classe .gioco, da main.js) i pulsanti sono raccolti dietro il pulsante coi tre pallini:
+   toccandolo si aprono (.aperto), ritoccandolo o toccando la scena si richiudono. Fuori dal livello (pagina di
+   avvio, pannello finale) i pulsanti sono tutti in vista e i tre pallini non servono. */
+#controls:not(.gioco) #menu-btn { display: none; }
+#controls.gioco:not(.aperto) > button:not(#menu-btn) { display: none; }
+/* Apertura: i pulsanti escono dai tre pallini uno dopo l'altro (il più vicino per primo), scivolando da destra con un piccolo rimbalzo */
+#controls.gioco.aperto > button:not(#menu-btn) { animation: pulsante-entra 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.3) backwards; }
+#controls.gioco.aperto > button:not(#menu-btn):nth-last-child(3) { animation-delay: 0.035s; }
+#controls.gioco.aperto > button:not(#menu-btn):nth-last-child(4) { animation-delay: 0.07s; }
+#controls.gioco.aperto > button:not(#menu-btn):nth-last-child(5) { animation-delay: 0.105s; }
+#controls.gioco.aperto > button:not(#menu-btn):nth-last-child(6) { animation-delay: 0.14s; }
+#controls.gioco.aperto > button:not(#menu-btn):nth-last-child(7) { animation-delay: 0.175s; }
+#controls.gioco.aperto > button:not(#menu-btn):nth-last-child(n + 8) { animation-delay: 0.21s; }
+/* Con la fila aperta ogni pulsante ha sotto una piccola etichetta (data-etichetta), che entra insieme al pulsante */
+#controls button { position: relative; }
+#controls.gioco.aperto > button[data-etichetta]::after {
+  content: attr(data-etichetta);
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  font: 600 10px/1 ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(5, 8, 26, 0.95), 0 0 6px rgba(5, 8, 26, 0.8);
+  pointer-events: none;
+}
+#controls.gioco.aperto ~ #audio-pannello { top: 74px; } /* il pannello dei volumi scende sotto le etichette */
+@keyframes pulsante-entra {
+  from { opacity: 0; transform: translateX(26px) scale(0.5); }
+  to { opacity: 1; transform: none; }
+}
+#menu-btn svg { transition: transform 0.2s; }
+#controls.aperto #menu-btn svg { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  #controls.gioco.aperto > button:not(#menu-btn) { animation: none; }
+}
+#frame.titolo #controls [data-action] { display: none; }
+/* sulla pagina di avvio i pulsanti rimasti stanno in basso a destra: in alto coprirebbero la luna col gufo */
+#frame.titolo #controls { top: auto; bottom: 10px; }
+#frame.titolo #audio-pannello { top: auto; bottom: 58px; }
 
 /* Pulsanti a pillola, come le etichette disegnate nel canvas */
 #controls button {
@@ -67,7 +117,15 @@ canvas#game {
   touch-action: manipulation;
 }
 
-#controls button:active { background: rgba(60, 74, 138, 0.9); }
+/* Tocco: niente riquadro grigio del browser attorno al pulsante; l'icona diventa dorata con un bagliore */
+#controls button:active,
+#controls button.icona.spento:active {
+  color: #ffd36b;
+  background: rgba(60, 74, 138, 0.9);
+  border-color: rgba(255, 211, 107, 0.7);
+  box-shadow: 0 0 14px rgba(255, 211, 107, 0.55);
+}
+#controls button:active svg { filter: drop-shadow(0 0 4px rgba(255, 211, 107, 0.9)); }
 
 /* Pulsante muto: icona SVG centrata, alta come gli altri pulsanti; spento = più tenue */
 #controls button.icona { display: inline-flex; align-items: center; justify-content: center; padding: 8px 13px; }
@@ -167,46 +225,103 @@ canvas#game {
 
 body:not(.debug) [data-debug], body:not(.debug) #hud { display: none; }
 
-/* Selettore dei livelli */
+/* Selettore dei livelli: pannello come quello di fine livello, una scheda per livello con l'anteprima della scena.
+   Le misure sono in --u (px dello schermo per px logico della scena, impostato da main.js): il pannello resta
+   proporzionato alla scena su telefono e su computer. */
 #levels {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(5, 8, 26, 0.7);
+  background: rgba(5, 8, 26, 0.72);
   z-index: 5;
-  font-family: system-ui, sans-serif;
+  font-family: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif;
 }
 #levels[hidden] { display: none; }
 .levels-panel {
-  width: min(560px, 90%);
-  max-height: 90%;
-  overflow: auto;
-  background: #16204d;
-  border: 1px solid #3c4a8a;
-  border-radius: 18px;
-  padding: 18px;
+  position: relative;
+  width: calc(var(--u) * 1040);
+  max-height: 96%;
+  background: linear-gradient(#2a2f7a, #141a4a);
+  border: calc(var(--u) * 2) solid rgba(255, 211, 107, 0.6);
+  border-radius: calc(var(--u) * 28);
+  padding: calc(var(--u) * 26) calc(var(--u) * 28) calc(var(--u) * 28);
   text-align: center;
+  box-shadow: 0 calc(var(--u) * 20) calc(var(--u) * 60) rgba(0, 0, 0, 0.5);
 }
-.levels-panel h2 { font-size: 20px; margin-bottom: 12px; }
-#level-list { display: grid; gap: 8px; margin-bottom: 12px; }
-#level-list button, .levels-close {
-  font: inherit;
-  color: inherit;
-  border: 1px solid #3c4a8a;
-  border-radius: 12px;
-  background: #1f2b63;
-  padding: 10px 14px;
+.levels-panel h2 {
+  font-size: calc(var(--u) * 40);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #ffd36b;
+  -webkit-text-stroke: calc(var(--u) * 1.5) #5a1e12;
+  paint-order: stroke fill;
+}
+.levels-stelle {
+  margin: calc(var(--u) * 6) 0 calc(var(--u) * 18);
+  font-size: calc(var(--u) * 20);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.86);
+}
+.levels-stelle b { color: #ffd36b; }
+.levels-close {
+  position: absolute;
+  top: calc(var(--u) * 16);
+  right: calc(var(--u) * 16);
+  width: calc(var(--u) * 52);
+  height: calc(var(--u) * 52);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(9, 13, 42, 0.6);
+  color: #fff;
+  font: 700 calc(var(--u) * 24)/1 inherit;
   cursor: pointer;
   touch-action: manipulation;
 }
+#level-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: calc(var(--u) * 20); }
 #level-list button {
+  position: relative;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  font-size: 16px;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  font: inherit;
+  color: #fff;
   text-align: left;
+  background: #1f2b63;
+  border: calc(var(--u) * 3) solid rgba(255, 255, 255, 0.2);
+  border-radius: calc(var(--u) * 22);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.12s;
 }
-#level-list button.current { border-color: #ffd36b; }
-#level-list .best { color: #ffd36b; font-size: 14px; white-space: nowrap; }
+#level-list button:active { transform: scale(0.97); }
+#level-list button.current { border-color: #ffd36b; box-shadow: 0 0 calc(var(--u) * 26) rgba(255, 211, 107, 0.35); }
+#level-list img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 32 / 15;
+  object-fit: cover;
+  background: #0d143d;
+}
+#level-list .numero {
+  position: absolute;
+  top: calc(var(--u) * 12);
+  left: calc(var(--u) * 12);
+  width: calc(var(--u) * 46);
+  height: calc(var(--u) * 46);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #ff6f61;
+  border: calc(var(--u) * 3) solid #fff;
+  font-size: calc(var(--u) * 24);
+  font-weight: 800;
+}
+#level-list .dati { padding: calc(var(--u) * 12) calc(var(--u) * 16) calc(var(--u) * 14); display: grid; gap: calc(var(--u) * 3); }
+#level-list .nome { font-size: calc(var(--u) * 23); font-weight: 700; line-height: 1.15; }
+#level-list .sotto { font-size: calc(var(--u) * 15); line-height: 1.25; color: rgba(255, 255, 255, 0.7); min-height: 2.5em; }
+#level-list .best { display: flex; justify-content: space-between; align-items: baseline; margin-top: calc(var(--u) * 4); font-size: calc(var(--u) * 19); font-weight: 700; }
+#level-list .stelle { color: #ffd36b; font-size: calc(var(--u) * 28); letter-spacing: calc(var(--u) * 2); }
+#level-list .stelle i { font-style: normal; color: rgba(255, 255, 255, 0.22); }
+#level-list .punti { color: rgba(255, 255, 255, 0.9); }

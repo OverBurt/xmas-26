@@ -114,6 +114,8 @@ export const REINDEER = {
   minSpeed: 1, // velocità relativa minima (m/s) perché un urto la spaventi
   cooldown: 0.4, // appena spaventata ignora altri contatti per questo tempo (un rimbalzo non fa due versi)
   restitution: 0.45, // il pacco rimbalza
+  // renna di fianco (solo disegno): ogni `ciclo` s gira la testa verso la camera per `camera` s; `giro` = durata del movimento
+  sguardo: { ciclo: 8, camera: 2.6, giro: 0.35 },
 };
 
 /** Pupazzi di neve: corpo unico finché un colpo non li separa in palle che rotolano. */
@@ -222,7 +224,11 @@ export const SCORE = {
 
 /** Regia d'apertura del livello: un unico movimento continuo case → panoramica → lancio. */
 export const INTRO = {
-  duration: 4.2, // secondi (lento in partenza sulle case e in arrivo sulla fionda)
+  attesa: 1, // s fermi sulle case col nome del livello, prima che la camera si muova
+  duration: 6.2, // secondi del movimento: circa 2 di allontanamento lentissimo dalle case, poi accelera e rallenta arrivando sulla fionda
+  partenza: 1.4, // quanto è lenta la partenza: esponente applicato al tempo prima della curva (1 = accelera subito; con 1.4 nei primi 2 s si fa il 3% del percorso)
+  titolo: 3.8, // s dall'inizio del movimento: il nome del livello resta al centro fino a qui...
+  titoloSfuma: 0.9, // ...sfumando negli ultimi secondi
 };
 
 /** Tempi del turno (s). */
@@ -237,6 +243,7 @@ export const TURN = {
   maxGiftWait: 10, // attesa massima che i pacchi lanciati si fermino (poi si va avanti comunque)
   deliveryLinger: 1.6, // dopo una consegna la camera resta sulla casa
   panReturn: 2, // dopo un pan manuale la camera torna alla fionda
+  inattivita: 120, // s senza tocchi, clic o tasti dentro un livello: si esce e si torna alla pagina di avvio (non con ?level o ?debug)
   outMargin: 5, // un pacco oltre i limiti del livello (o sotto il terreno) di questi metri è perso
 };
 
@@ -263,6 +270,9 @@ export const GFX = {
     medie: { f: 0.08, zoom: 0.12 }, // montagne medie
     paese: { f: 0.4, zoom: 0.45, alza: 45 }, // profilo della città (`alza`: px in più sopra l'orizzonte)
     pini: { f: 0.58, zoom: 0.65, alza: 35 }, // pini alti subito dietro la scena (`alza`: px in più sopra la linea del terreno)
+    // primo piano davanti alla scena: cumuli, cespugli e paletti lungo il bordo inferiore. `alto` = altezza della striscia (px),
+    // `steccati` e `cespugli` = probabilità accanto a ogni cumulo. Spento nella qualità bassa (tiers.front).
+    primo: { f: 1.3, zoom: 1, alto: 64, steccati: 0.35, cespugli: 0.5 },
   },
   /**
    * Forma dei due piani di montagne [lontane, medie]: `scala` schiaccia le altezze delle vette,
@@ -278,6 +288,12 @@ export const GFX = {
   stars: 150, // stelle fisse dipinte nel cielo
   atlas: { size: 2048, maxSprite: 512, pad: 2 }, // atlante degli sprite piccoli (px): una sola immagine per la scheda video
   moon: { x: 905, y: 110, r: 44 }, // luna (px logici del cielo): disegnata nel cielo, dietro tutti i piani delle montagne
+  pannello: { x1: 920, y0: 16, y1: 516, margine: 8 }, // ingombro del pannello di fine livello (px logici, neve compresa) e distanza minima dai pulsanti in alto e dal bordo in basso
+  /**
+   * Pagina di avvio (px logici): centro del blocco del titolo, riga del titolo e del sottotitolo, centro e misure del
+   * pulsante PLAY (che il gufo guarda). Il blocco sta a sinistra della luna, sopra la slitta e la fionda.
+   */
+  titolo: { x: 540, y: 196, play: { x: 540, y: 392, w: 250, h: 88 } },
   panelSnowPpm: 60, // scala (px per metro) del cappello di neve sul pannello di fine livello: neve grande come sui tetti
   piniAlone: 18, // sfumatura (px) dell'alone scuro attorno ai pini dietro la scena
   piniSchiarita: 0.1, // pini dietro la scena: quanto schiariscono verso la base (0 = tono pieno); bassa = sagome scure che si staccano dalle montagne
@@ -286,15 +302,16 @@ export const GFX = {
   terreno: { orlo: 0.15, fascia: 0.17 }, // ampiezza (m) dei cumuli sul bordo della neve e delle onde delle fasce più in basso (solo grafica)
   hudScaleRef: 0.9, // sotto questa scala (px dello schermo per px logico) HUD ed etichette si ingrandiscono in proporzione
   hudScaleMax: 1.6, // ingrandimento massimo
+  hudNomeMax: 1.05, // il nome del livello nell'HUD si mostra solo fino a questo ingrandimento (cioè non sui telefoni)
   paeseMargine: 0.8, // m oltre la chioma più a destra degli alberi da cui iniziano le case del paese (nell'inquadratura di mira)
   /** Livelli di qualità: scelti da soli in base al tempo di frame, oppure con `?qualita=alta|media|bassa`. */
   tiers: {
-    alta: { dpr: 2, sprite: 96, layer: 1, snow: 90, twinkle: 16, smoke: true },
-    media: { dpr: 2, sprite: 72, layer: 1, snow: 55, twinkle: 8, smoke: true },
-    bassa: { dpr: 1.5, sprite: 48, layer: 0.75, snow: 28, twinkle: 0, smoke: false },
+    alta: { dpr: 2, sprite: 96, layer: 1, snow: 90, twinkle: 16, smoke: true, front: true },
+    media: { dpr: 2, sprite: 72, layer: 1, snow: 55, twinkle: 8, smoke: true, front: true },
+    bassa: { dpr: 1.5, sprite: 48, layer: 0.75, snow: 28, twinkle: 0, smoke: false, front: false },
   },
   // dpr = densità massima del canvas; sprite = pixel per metro degli sprite in cache; layer = densità dei piani di sfondo;
-  // snow = fiocchi che cadono; twinkle = stelle che tremolano; smoke = fumo dai camini aperti.
+  // snow = fiocchi che cadono; twinkle = stelle che tremolano; smoke = fumo dai camini aperti; front = primo piano davanti alla scena.
   auto: {
     warmup: 3, // secondi iniziali ignorati (caricamento, costruzione degli sprite)
     window: 2.5, // secondi di misura prima di decidere
@@ -349,6 +366,11 @@ export const AUDIO = {
   breakWindow: 0.1,
   breakMax: 2,
   glassWindow: 0.08, // vetri ravvicinati: un solo suono
+  /**
+   * Neve che si rompe, un "pòf" ovattato: volume del colpetto grave e dello sbuffo d'aria, attacco del colpetto (s),
+   * tono del colpetto [inizio, fine] (Hz), taglio del passa-basso dello sbuffo [inizio, fine] (Hz).
+   */
+  neve: { colpo: 0.32, sbuffo: 0.22, attacco: 0.014, tono: [150, 58], filtro: [520, 140] },
   crystalGain: 0.8, // volume del tintinnio dei cristalli dell'albero (lieve)
   crystalWindow: 0.07, // cristalli dell'albero staccati di fila: al massimo un tintinnio ogni tanti secondi
   /**

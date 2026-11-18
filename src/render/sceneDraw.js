@@ -9,7 +9,7 @@ import { buildGiftSprites, drawGift, buildSleighSprite, drawSling, buildDecorSpr
 import { drawBodies, resetBodySprites } from './bodiesDraw.js';
 import { drawReindeer } from './reindeerDraw.js';
 import { drawSnowfall, drawSmoke } from './weather.js';
-import { drawWorldLabels, drawHud, drawIntroTitle, drawSummary, drawTrajectory, drawOffscreenArrow } from './hudDraw.js';
+import { drawWorldLabels, drawHud, drawTitle, drawIntroTitle, drawSummary, drawTrajectory, drawOffscreenArrow } from './hudDraw.js';
 
 /**
  * Renderer della scena (M4, direzione "Notte di velluto"). Tutto è disegnato da codice in Canvas 2D:
@@ -22,7 +22,7 @@ import { drawWorldLabels, drawHud, drawIntroTitle, drawSummary, drawTrajectory, 
 
 /** Cache legata al livello e alla qualità (sfondo e sprite fissi). */
 let fisso = null;
-/** Debug prestazioni: `?salta=sfondo,terreno,pini,case,decor,alberi,renne,corpi,particelle,slitta,neve,testi` esclude parti del disegno. */
+/** Debug prestazioni: `?salta=sfondo,terreno,pini,case,decor,alberi,renne,corpi,particelle,slitta,primo,neve,testi` esclude parti del disegno. */
 const SALTA = new Set((typeof location !== 'undefined' ? new URLSearchParams(location.search).get('salta') || '' : '').split(',').filter(Boolean));
 const on = (k) => !SALTA.has(k);
 /** Cache legata alla partita in corso (alberi: cambiano forma a ogni reset). */
@@ -70,7 +70,8 @@ export function drawScene(ctx, game, alpha, o = {}) {
   if (on('sfondo')) {
     // il gufo guarda il pacco in volo, altrimenti il mouse o il dito (punto dello schermo)
     const g = game.current?.getPosition();
-    const sguardo = g ? { x: (g.x - camera.x) * camera.ppm, y: VIEW_H - (g.y - camera.bottom) * camera.ppm } : o.puntatore;
+    // (sulla pagina di avvio guarda il pulsante PLAY)
+    const sguardo = game.state === 'titolo' ? GFX.titolo.play : g ? { x: (g.x - camera.x) * camera.ppm, y: VIEW_H - (g.y - camera.bottom) * camera.ppm } : o.puntatore;
     fisso.backdrop.draw(ctx, camera, t, sguardo);
   }
   else { ctx.fillStyle = '#0b1230'; ctx.fillRect(0, 0, 1280, 600); }
@@ -123,12 +124,14 @@ export function drawScene(ctx, game, alpha, o = {}) {
     }
     drawGift(ctx, c.gift.type, c.x, c.y, 0, 1.1);
   }
+  if (on('primo')) fisso.backdrop.drawFront(ctx, camera); // primo piano: davanti alla scena, sotto traiettoria e testi
   drawTrajectory(ctx, game.trajectory, camera.ppm);
   drawOffscreenArrow(ctx, game);
 
   if (on('neve')) drawSnowfall(ctx, camera, t, tier.snow);
 
-  if (on('testi')) {
+  if (game.state === 'titolo') drawTitle(ctx, game, o);
+  else if (on('testi')) {
     drawWorldLabels(ctx, game);
     drawHud(ctx, game, o.hudTop);
   }
@@ -165,6 +168,9 @@ function rifSfondo(game) {
     ppm: VIEW_W / cam.aimW,
     slitta: game.sleigh.x + 0.3 + game.sleigh.bedW / 2, // centro del pianale (sleigh.x è il bordo sinistro)
     paeseDa: (chiome.length ? Math.max(...chiome) : game.sleigh.x) + GFX.paeseMargine,
+    // tratto che il primo piano lascia libero nell'inquadratura di mira: slitta, fionda e il pacco tirato indietro
+    liberoDa: game.sleigh.x - 1,
+    liberoA: game.sling.x + 2,
   };
 }
 

@@ -1,4 +1,4 @@
-import { VIEW_H, GFX } from '../config.js';
+import { VIEW_W, VIEW_H, GFX } from '../config.js';
 
 /**
  * Vista corrente del disegno. Tutto il rendering lavora in pixel logici (y verso il basso) e converte i metri
@@ -25,6 +25,31 @@ export const TAU = Math.PI * 2;
 export const HUD = { k: 1 };
 export function setHudScale(scalaCss) {
   HUD.k = Math.min(GFX.hudScaleMax, Math.max(1, GFX.hudScaleRef / scalaCss));
+}
+
+/**
+ * Ingombro dei pulsanti DOM in alto a destra, in px logici (main.js lo aggiorna a ogni ridimensionamento):
+ * `left` = bordo sinistro del gruppo, `bottom` = bordo inferiore. Sul telefono 1 px CSS vale ~1.6 px logici,
+ * quindi i pulsanti occupano molto più spazio della vista logica che su desktop.
+ */
+export const UI = { left: VIEW_W, bottom: 0 };
+export function setUiBox(left, bottom) {
+  UI.left = left;
+  UI.bottom = bottom;
+}
+
+/**
+ * Posto del pannello di fine livello: disegnato per stare in x 360–920, y 16–516 (neve del bordo compresa).
+ * Se i pulsanti in alto a destra lo toccherebbero (telefoni), il pannello scende sotto di loro e, se non ci sta
+ * tutto, si rimpicciolisce attorno al centro orizzontale. Restituisce la trasformazione da applicare:
+ * schermo = (x − VIEW_W/2)·f + VIEW_W/2, y·f + dy. La usano il disegno (hudDraw) e il tocco dei pulsanti (gestures).
+ */
+export function panelFit() {
+  const P = GFX.pannello;
+  if (UI.left > P.x1 + P.margine) return { f: 1, dy: 0 };
+  const top = UI.bottom + P.margine;
+  const f = Math.min(1, (VIEW_H - P.margine - top) / (P.y1 - P.y0));
+  return { f, dy: Math.max(0, top - P.y0 * f) };
 }
 
 /** Generatore pseudo-casuale a seme fisso, separato da quello del gioco (non altera fratture e simulazioni). */

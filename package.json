@@ -12,6 +12,9 @@
     "sim:score": "node tools/sim/score.mjs",
     "sim:play": "node tools/sim/play.mjs",
     "musica": "node tools/audio/registra-musica.mjs",
+    "anteprime": "node tools/og/crea-anteprime.mjs",
+    "og": "node tools/og/crea-og.mjs",
+    "icone": "node tools/og/crea-icone.mjs",
     "phone:consumi": "node tools/phone/consumi.mjs --giri 3",
     "phone:fisica": "node tools/phone/fisica.mjs --giri 3"
   },

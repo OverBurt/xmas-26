@@ -1,7 +1,7 @@
-import { VIEW_W, VIEW_H, GFX, GIFTS, SCORE } from '../config.js';
+import { VIEW_W, VIEW_H, GFX, GIFTS, SCORE, INTRO } from '../config.js';
 import { WALL, isPlugged } from '../entities/house.js';
 import { centroid } from '../physics/polygon.js';
-import { X, Y, TAU, stella5, V, setView, HUD } from './view.js';
+import { X, Y, TAU, stella5, V, setView, HUD, panelFit } from './view.js';
 import { cappello } from './snow.js';
 import { daCache } from './textCache.js';
 import { drawGiftIcon } from './propsDraw.js';
@@ -231,7 +231,8 @@ export function drawHud(ctx, game, top = 0) {
   ctx.scale(k, k);
   daCache(ctx, `hud|${tipi.join(',')}|${punti}`, 0, 0, 460, 62, 0, 0, (c) => hudPacchiPunti(c, tipi, punti));
   ctx.restore();
-  const yn = Math.max(76, top + 8 + 10 * k); // sotto i pulsanti: su desktop a 76, sul telefono più in basso
+  const yn = Math.max(76, top + 8 + 10 * k); // sotto i pulsanti
+  if (k <= GFX.hudNomeMax) { // sui telefoni (HUD ingrandito) il nome del livello non si mostra: toglie spazio alla scena
   ctx.save();
   ctx.translate(VIEW_W - 16, yn);
   ctx.scale(k, k);
@@ -244,8 +245,10 @@ export function drawHud(ctx, game, top = 0) {
     c.fillText(game.level.name, 0, 0);
   });
   ctx.restore();
+  }
   let hint = '';
-  if (game.state === 'ready') {
+  if (game.mode === 'aim') hint = ''; // durante la mira niente testi sotto i punti
+  else if (game.state === 'ready') {
     if (game.sling.loaded) hint = 'Tira indietro il pacco e rilascia';
     else if (game.sleigh.count) hint = 'Trascina un pacco sulla fionda e tira indietro';
   } else if (game.state === 'intro') hint = 'Tocca per saltare';
@@ -317,10 +320,114 @@ export function drawOffscreenArrow(ctx, game) {
   ctx.stroke();
 }
 
+/**
+ * Pagina di avvio, sopra la scena del livello ferma nell'inquadratura di mira (il gufo sulla luna guarda PLAY):
+ * velo scuro che lascia libera la luna, filo di lucine, titolo dorato con le scintille, sottotitolo, pulsante PLAY
+ * che pulsa e, se ce ne sono, le stelle già prese. Misure in GFX.titolo. `o.stelle` = {n, max} (da main.js).
+ */
+export function drawTitle(ctx, game, o = {}) {
+  const T = GFX.titolo;
+  const t = game.time || 0;
+  const m = GFX.moon;
+  ctx.save();
+  const velo = ctx.createRadialGradient(m.x, m.y, 70, m.x, m.y, 620);
+  velo.addColorStop(0, 'rgba(5,8,26,0)');
+  velo.addColorStop(1, 'rgba(5,8,26,0.62)');
+  ctx.fillStyle = velo;
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  // filo di lucine appeso sopra il titolo
+  const col = ['#ff6f61', '#ffd36b', '#5fe0b8', '#8fc8ff'];
+  const x0 = T.x - 340;
+  const lf = 590; // lunghezza del filo: si ferma prima della luna
+  const filo = (u) => T.y - 92 + 26 * 4 * u * (1 - u);
+  ctx.strokeStyle = 'rgba(20,16,60,0.9)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i <= 40; i++) ctx.lineTo(x0 + (i / 40) * lf, filo(i / 40));
+  ctx.stroke();
+  for (let i = 0; i < 15; i++) {
+    const u = (i + 0.5) / 15;
+    const on = 0.55 + 0.45 * Math.sin(t * 3 + i * 1.9);
+    ctx.fillStyle = col[i % 4];
+    ctx.globalAlpha = 0.3 * on;
+    ctx.beginPath();
+    ctx.arc(x0 + u * lf, filo(u) + 6, 11, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 0.65 + 0.35 * on;
+    ctx.beginPath();
+    ctx.arc(x0 + u * lf, filo(u) + 6, 4.6, 0, TAU);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // titolo (ondeggia appena) con l'etichetta GAME e le scintille
+  const yt = T.y + Math.sin(t * 1.3) * 3;
+  testo(ctx, "Biglietto d'auguri", T.x + 3, yt + 5, 74, { col: 'rgba(0,0,0,0.35)', bordo: false, peso: 800 });
+  testo(ctx, "Biglietto d'auguri", T.x, yt, 74, { col: C.oro, bordo: '#5a1e12', peso: 800 });
+  ctx.fillStyle = '#ff6f61';
+  ctx.strokeStyle = '#5a1e12';
+  ctx.lineWidth = 3;
+  ctx.save();
+  ctx.translate(T.x + 248, yt + 52);
+  ctx.rotate(-0.09);
+  ctx.beginPath();
+  ctx.roundRect(-52, -19, 104, 38, 19);
+  ctx.fill();
+  ctx.stroke();
+  testo(ctx, 'GAME', 0, 1, 23, { col: '#fff', bordo: false, peso: 800 });
+  ctx.restore();
+  ctx.fillStyle = '#fff6d8';
+  for (let i = 0; i < 9; i++) {
+    const a = Math.max(0, Math.sin(t * 2.1 + i * 2.3));
+    if (a < 0.05) continue;
+    ctx.globalAlpha = a;
+    scintilla(ctx, T.x + (hash(i + 400) - 0.5) * 700, yt - 60 + hash(i + 410) * 130, 4 + a * 6);
+  }
+  ctx.globalAlpha = 1;
+  testo(ctx, 'Lancia i regali nelle case del villaggio', T.x - 30, T.y + 88, 24, { col: 'rgba(255,255,255,0.92)', bordo: 'rgba(12,14,52,0.6)', peso: 600 });
+  // pulsante PLAY: pillola corallo con il triangolo, pulsa piano e ha un alone caldo
+  const B = T.play;
+  const k = 1 + 0.035 * Math.sin(t * 3.2);
+  ctx.translate(B.x, B.y);
+  const al = ctx.createRadialGradient(0, 0, 20, 0, 0, 210);
+  al.addColorStop(0, 'rgba(255,150,110,0.38)');
+  al.addColorStop(1, 'rgba(255,150,110,0)');
+  ctx.fillStyle = al;
+  ctx.fillRect(-210, -210, 420, 420);
+  ctx.scale(k, k);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.roundRect(-B.w / 2 + 2, -B.h / 2 + 8, B.w, B.h, B.h / 2);
+  ctx.fill();
+  const g = ctx.createLinearGradient(0, -B.h / 2, 0, B.h / 2);
+  g.addColorStop(0, '#ff8a6f');
+  g.addColorStop(1, '#e8453f');
+  ctx.beginPath();
+  ctx.roundRect(-B.w / 2, -B.h / 2, B.w, B.h, B.h / 2);
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; // riflesso in alto
+  ctx.beginPath();
+  ctx.roundRect(-B.w / 2 + 16, -B.h / 2 + 9, B.w - 32, B.h * 0.3, B.h * 0.15);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(-74, -22);
+  ctx.lineTo(-38, 0);
+  ctx.lineTo(-74, 22);
+  ctx.closePath();
+  ctx.fill();
+  testo(ctx, 'PLAY', 28, 2, 44, { col: '#fff', bordo: false, peso: 800 });
+  ctx.restore();
+  if (o.stelle?.n) testo(ctx, `★ ${o.stelle.n} su ${o.stelle.max}`, T.x, T.play.y + 78, 20, { col: C.oro, bordo: 'rgba(12,14,52,0.7)', peso: 700 });
+}
+
 /** Nome del livello al centro mentre la camera mostra le case (dissolvenza in entrata e uscita). */
 export function drawIntroTitle(ctx, game) {
   const t = game.intro.t;
-  const a = Math.min(1, t / 0.3) * Math.min(1, Math.max(0, (1.9 - t) / 0.6)); // sparisce mentre la camera si allarga
+  const a = Math.min(1, t / 0.3) * Math.min(1, Math.max(0, (INTRO.attesa + INTRO.titolo - t) / INTRO.titoloSfuma)); // sparisce mentre la camera si allarga
   if (a <= 0) return;
   const [title, sub] = game.level.name.split(' · ');
   testo(ctx, title, VIEW_W / 2, VIEW_H * 0.3, 56, { col: '#fff', bordo: 'rgba(12,14,52,0.75)', alfa: a });
@@ -346,10 +453,10 @@ function scintilla(c, x, y, r) {
 
 /**
  * Decorazioni leggere della schermata finale (tempo reale t, s dall'apertura): neve che scende su tutto
- * lo schermo, stelle cadenti in alto, scintille attorno al titolo (le lucine sul bordo sono in `lucine`).
+ * lo schermo, stelle cadenti in alto (le scintille attorno al titolo sono in `scintilleTitolo`, le lucine in `lucine`).
  * Nessuna allocazione per frame, una manciata di riempimenti.
  */
-function decorazioni(c, t, x, y, w) {
+function decorazioni(c, t) {
   // neve: 46 fiocchi, cadono lenti e ondeggiano; ricompaiono in alto
   c.fillStyle = 'rgba(255,255,255,0.8)';
   c.beginPath();
@@ -385,6 +492,10 @@ function decorazioni(c, t, x, y, w) {
     scintilla(c, sx, sy, 6);
     c.globalAlpha = 1;
   }
+}
+
+/** Scintille attorno al titolo del pannello finale (stessa trasformazione del pannello). */
+function scintilleTitolo(c, t, y) {
   // scintille attorno al titolo
   c.fillStyle = C.oro;
   for (let i = 0; i < 8; i++) {
@@ -396,7 +507,6 @@ function decorazioni(c, t, x, y, w) {
     c.globalAlpha = a;
     scintilla(c, sx, sy, 4 + a * 5);
   }
-  c.globalAlpha = 1;
   c.globalAlpha = 1;
 }
 
@@ -446,6 +556,11 @@ export function drawSummary(ctx, game) {
   ctx.save();
   ctx.fillStyle = `rgba(5,8,26,${0.6 * Math.min(1, t / 0.4)})`;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  // posto del pannello: sui telefoni scende sotto i pulsanti in alto e, se serve, si rimpicciolisce (view.panelFit)
+  const fit = panelFit();
+  ctx.translate(VIEW_W / 2, fit.dy);
+  ctx.scale(fit.f, fit.f);
+  ctx.translate(-VIEW_W / 2, 0);
   // entrata: il pannello sale e si ingrandisce un poco (0.35 s, rimbalzo leggero)
   const k = Math.min(1, t / 0.35);
   const pop = 1 - (1 - k) ** 3 + Math.sin(k * Math.PI) * 0.04;
@@ -516,9 +631,11 @@ export function drawSummary(ctx, game) {
     ctx.fill();
     testo(ctx, b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, 21, { col: '#fff', bordo: false, peso: 600 });
   }
+  ctx.globalAlpha = 1;
+  scintilleTitolo(ctx, t, yc);
   ctx.restore();
   ctx.save();
-  decorazioni(ctx, t, x, yc, w);
+  decorazioni(ctx, t);
   ctx.restore();
 }
 

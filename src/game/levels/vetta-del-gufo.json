@@ -3,7 +3,7 @@
   "name": "La vetta del gufo · tre camini sempre più in alto",
   "bounds": {
     "minX": -4.5,
-    "maxX": 54
+    "maxX": 54.5
   },
   "sleigh": {
     "x": 0.3
@@ -21,13 +21,13 @@
   ],
   "previewDist": 28,
   "stars": [
-    3250,
-    5200,
-    8600
+    3200,
+    6700,
+    10000
   ],
   "camera": {
-    "aimCenter": 12,
-    "aimW": 26,
+    "aimCenter": 10.5,
+    "aimW": 23,
     "aimMaxW": 44.4
   },
   "forts": [
@@ -119,14 +119,14 @@
   "hills": [
     {
       "x0": 33.5,
-      "x1": 54,
+      "x1": 54.5,
       "h": 2.5,
       "slope": 3
     },
     {
       "x0": 45,
-      "x1": 54,
-      "h": 5,
+      "x1": 54.5,
+      "h": 4,
       "slope": 3.2
     }
   ],
@@ -139,7 +139,7 @@
       "lean": 0.5,
       "door": {
         "h": 1.9,
-        "points": 2500
+        "points": 2300
       },
       "windows": [
         {
@@ -169,7 +169,7 @@
       "lean": 0.35,
       "door": {
         "h": 1.9,
-        "points": 1850
+        "points": 1800
       },
       "windows": [
         {
@@ -190,32 +190,32 @@
       "snowCap": true
     },
     {
-      "x": 45.6,
-      "y": 5,
-      "w": 4.6,
-      "h": 4.8,
-      "roof": 3,
-      "lean": 0.35,
+      "x": 45.4,
+      "y": 4,
+      "w": 5.2,
+      "h": 3.9,
+      "roof": 2.3,
+      "lean": 0.5,
       "door": {
         "h": 1.9,
-        "points": 2100
+        "points": 2400
       },
       "windows": [
         {
-          "y": 2.45,
-          "h": 1.5,
+          "y": 2.2,
+          "h": 1.4,
           "points": 3000
         }
       ],
       "chimney": {
         "pos": 0.4,
-        "bottom": 0.8,
-        "top": 1.35,
-        "h": 1.2,
-        "tilt": 8,
-        "points": 2200
+        "bottom": 0.9,
+        "top": 1.55,
+        "h": 1.3,
+        "tilt": 12,
+        "points": 2000
       },
-      "stile": "casetta"
+      "stile": "baita"
     }
   ],
   "pines": [
@@ -229,14 +229,14 @@
       "pose": "fronte"
     },
     {
-      "x": 50.9,
-      "y": 5,
+      "x": 51.4,
+      "y": 4,
       "pose": "fronte"
     },
     {
-      "x": 52.6,
-      "y": 5,
-      "pose": "bruca",
+      "x": 53.4,
+      "y": 4,
+      "pose": "fianco",
       "facing": -1
     }
   ],
@@ -272,7 +272,7 @@
     ],
     [
       44,
-      3.6,
+      2.9,
       0.2
     ]
   ]

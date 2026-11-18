@@ -28,12 +28,12 @@
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Il villaggio innevato di notte: la slitta con i regali, la fionda, un fortino di neve con un pupazzo e le case illuminate." />
+  <meta property="og:image:alt" content="La pagina di avvio del gioco: il titolo Biglietto d'auguri, il pulsante PLAY e un gufo sulla luna che lo guarda, nel villaggio innevato di notte con la slitta dei regali e la fionda." />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Biglietto d'auguri - GAME · Buone Feste!" />
   <meta name="twitter:description" content="Un biglietto d'auguri da giocare: lancia i regali con la fionda dentro le case del villaggio innevato." />
   <meta name="twitter:image" content="%VITE_SITE_URL%og.png" />
-  <meta name="twitter:image:alt" content="Il villaggio innevato di notte con la slitta, la fionda e le case illuminate." />
+  <meta name="twitter:image:alt" content="Il titolo Biglietto d'auguri, il pulsante PLAY e un gufo sulla luna, nel villaggio innevato di notte." />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -62,11 +62,13 @@
     <div id="controls">
       <button data-action="wake" data-debug title="Tasto W">Sveglia pile</button>
       <button data-action="stress" data-debug title="Tasto S">Stress +40</button>
-      <button data-action="levels" title="Tasto L">Livelli</button>
-      <button data-action="reset" title="Tasto R">Reset</button>
-      <button id="muto-btn" class="icona" title="Audio (tasto M)" aria-label="Audio" aria-controls="audio-pannello" aria-expanded="false"></button>
-      <button id="share-btn" class="icona" title="Condividi con gli amici" aria-label="Condividi"></button>
-      <button id="fs-btn" title="Schermo intero">⛶</button>
+      <button data-action="levels" class="icona" data-etichetta="Livelli" title="Livelli (tasto L)" aria-label="Livelli"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="2" fill="currentColor"/><rect x="13.5" y="3.5" width="7" height="7" rx="2" fill="currentColor"/><rect x="3.5" y="13.5" width="7" height="7" rx="2" fill="currentColor"/><rect x="13.5" y="13.5" width="7" height="7" rx="2" fill="currentColor"/></svg></button>
+      <button data-action="reset" class="icona" data-etichetta="Ricomincia" title="Ricomincia il livello (tasto R)" aria-label="Ricomincia il livello"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5"/><path d="M4 4.5v4.6h4.6"/></svg></button>
+      <button id="muto-btn" class="icona" data-etichetta="Audio" title="Audio (tasto M)" aria-label="Audio" aria-controls="audio-pannello" aria-expanded="false"></button>
+      <button id="share-btn" class="icona" data-etichetta="Condividi" title="Condividi con gli amici" aria-label="Condividi"></button>
+      <button id="installa-btn" class="icona" data-etichetta="Installa" title="Installa il gioco" aria-label="Installa il gioco" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10.5"/><path d="M7.5 10.5l4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/></svg></button>
+      <button id="fs-btn" data-etichetta="Schermo" title="Schermo intero" aria-label="Schermo intero">⛶</button>
+      <button id="menu-btn" class="icona" title="Pulsanti" aria-label="Mostra o nascondi i pulsanti" aria-expanded="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="19" r="2.2"/></svg></button>
     </div>
     <div id="audio-pannello" hidden>
       <div class="riga" data-canale="musica">
@@ -80,10 +82,11 @@
     </div>
     <div id="avviso" role="status" hidden></div>
     <div id="levels" hidden>
-      <div class="levels-panel">
-        <h2>Scegli il livello</h2>
+      <div class="levels-panel" role="dialog" aria-labelledby="levels-titolo">
+        <button class="levels-close" data-action="close-levels" aria-label="Chiudi">✕</button>
+        <h2 id="levels-titolo">Scegli il livello</h2>
+        <p class="levels-stelle"></p>
         <div id="level-list"></div>
-        <button class="levels-close" data-action="close-levels">Chiudi</button>
       </div>
     </div>
   </div>
