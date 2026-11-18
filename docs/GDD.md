@@ -465,7 +465,7 @@ Richieste dell'utente raccolte nella issue GitHub #1, fatte tutte e pubblicate l
 - **HUD**: sul telefono niente nome del livello; durante mira e lancio spariscono i pulsanti e il suggerimento sotto i punti. Livelli e Reset sono icone; nuovo pulsante Installa, visibile solo se il browser offre l'installazione e il gioco non è già installato.
 - **Mira più vicina**: vista di 22 m (23 nel terzo livello) invece di 26, bordo sinistro sempre a −1 m: fionda e pacchi sono il 18% più grandi. Tendendo l'elastico la vista si allarga come prima fino a `aimMaxW`.
 - **Suono della neve**: «pòf» ovattato (colpetto grave con attacco dolce + sbuffo scuro e corto), valori in `AUDIO.neve`. Non ascoltato dall'agente.
-- **Icona e banner**: icona = gufo sulla punta del pino contro la luna (`public/icon.svg`, PNG con `npm run icone`); banner `og.png` = fotografia della pagina di avvio (`npm run og`).
+- **Icona e banner**: icona = gufo sulla punta del pino contro la luna (`public/gufo.svg`, PNG con `npm run icone`); banner `og.png` = fotografia della pagina di avvio (`npm run og`).
 - **Pagina dei livelli**: pannello come quello finale, una scheda per livello con l'anteprima della scena (`public/livelli/<id>.webp`, `npm run anteprime`), numero, nome, stelle e record.
 - **Finestra «Buone Feste»**: quando i pulsanti in alto la toccherebbero scende sotto di loro e, se serve, si rimpicciolisce (`view.panelFit`); i pulsanti restano visibili. Sull'S21 a schermo intero scende di 70 px logici senza rimpicciolirsi.
 - **Terzo livello**: l'ultima casa era tagliata in alto dalla vista di volo (cima a 13,5 m con vista alta 13,5). Rilievo da 5 a 4 m e casa cambiata in baita (3,9 + 2,3 m): cima a circa 11,6 m. Livello allungato a x 54,5 per le renne.
@@ -479,6 +479,7 @@ Richieste dell'utente raccolte nella issue GitHub #1, fatte tutte e pubblicate l
   - tolto il riquadro di evidenziazione del tocco di Chrome; al tocco l'icona diventa dorata con un bagliore;
   - dopo `TURN.inattivita` = 120 s senza gesti dentro un livello si torna alla pagina di avvio (non con `?level` o `?debug`); provato sull'S21 con 60 s;
   - regia d'apertura: 1 s fermi sulle case col nome del livello (`INTRO.attesa`), poi 6,2 s di movimento con partenza lentissima (3,5% del percorso nei primi 2 s, 61% al quarto), nome visibile fino a circa 4,8 s.
+- **Icona vecchia all'installazione** (dopo la pubblicazione): installando dall'S21 compariva ancora il pacco regalo. I file pubblicati erano già quelli nuovi (stessa impronta in rete e nella cache del service worker sul telefono): era Chrome a riusare l'icona scaricata in precedenza con lo stesso indirizzo. Icone rinominate (`gufo.svg`, `gufo-512.png`, `gufo-192.png`, `gufo-180.png`), nel manifest prima i PNG (192 e 512, anche «maskable») e l'SVG per ultimo, service worker `xmas26-v4`. Regola: se l'icona cambia disegno, cambia anche nome.
 - **Verifiche**: `npm test` 9 su 9, build riuscita. Chrome desktop: pagina di avvio, mira, pagina dei livelli, renna, terza casa. S21: pagina di avvio (anche a schermo intero), mira con pulsanti e suggerimento nascosti, finestra finale sotto i pulsanti, terza casa intera in volo; disegno 4,1–4,3 ms a scena ferma sul terzo livello, 60 FPS in volo (non a schermo intero, canvas 1194×560). Non verificati: suoni, pulsante Installa premuto davvero, iPhone.
 
 ## 8. Decisioni prese (17/11/2026)
