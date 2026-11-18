@@ -15,6 +15,7 @@ adb forward tcp:9222 localabstract:chrome_devtools_remote   # DevTools di Chrome
 adb shell am start -a android.intent.action.VIEW -d "http://localhost:5173/?debug" -p com.android.chrome
 ```
 - **Schermo intero**: va chiesto con un tocco vero. Toccare il **centro del canvas** (es. `adb shell input tap 1200 600` in orizzontale), non in alto: prima dello schermo intero la pagina è più in basso e un tocco in alto può premere "Stress +40".
+- **Gioco pubblicato** (https://overburt.github.io/xmas-26/): non serve `adb reverse`; aprirlo con `adb shell am start -a android.intent.action.VIEW -d "https://overburt.github.io/xmas-26/?debug" -p com.android.chrome` e premettere `CDP_MATCH=overburt.github.io` ai comandi `cdp.mjs`.
 - **Stato e misure**: `node tools/phone/cdp.mjs "document.getElementById('hud').textContent"` (FPS, ms di fisica, corpi).
 - **Coordinate da toccare**: `node tools/phone/cdp.mjs "$(cat tools/phone/coords.js)"`.
 - **Gesto unico slitta → fionda → mira**: `tools/phone/drag.sh xPacco yPacco xFionda yFionda xMira yMira`.

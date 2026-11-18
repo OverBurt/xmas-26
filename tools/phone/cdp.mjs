@@ -1,10 +1,13 @@
 // Valuta un'espressione JS nella pagina del gioco aperta in Chrome sul telefono (via DevTools Protocol).
 // Prerequisiti: adb collegato, `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
 // Uso: node tools/phone/cdp.mjs "<espressione JS>"   (le Promise vengono attese)
+// La scheda si sceglie per indirizzo: di default il server locale; per il gioco pubblicato
+// CDP_MATCH=overburt.github.io node tools/phone/cdp.mjs "..."
+const MATCH = process.env.CDP_MATCH || 'localhost:5173';
 const tabs = await (await fetch('http://localhost:9222/json')).json();
-const pages = tabs.filter((t) => t.type === 'page' && t.url.includes('localhost:5173'));
+const pages = tabs.filter((t) => t.type === 'page' && t.url.includes(MATCH));
 if (!pages.length) {
-  console.error('Nessuna scheda del gioco aperta in Chrome sul telefono (localhost:5173).');
+  console.error(`Nessuna scheda del gioco aperta in Chrome sul telefono (${MATCH}).`);
   process.exit(1);
 }
 // La prima della lista è quella usata più di recente
